@@ -107,7 +107,8 @@ export class UIManager {
             this.hostLinkBtn.addEventListener('click', () => {
                 const token = localStorage.getItem('sq_token');
                 if (token) {
-                    // Host De-Link: clear token and reset UI state
+                    // Host De-Link: notify host logic, then clear token and reset UI state
+                    this.network.requestDelink();
                     localStorage.removeItem('sq_token');
                     if (this.hostLinkCodeSmall) this.hostLinkCodeSmall.innerText = '';
                     if (this.hostLinkCopyStatus) this.hostLinkCopyStatus.innerText = '';
@@ -139,7 +140,8 @@ export class UIManager {
         if (!this.isHost && this.clientDelinkBtn) {
             this.clientDelinkBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                // Client De-Link: clear token and force relink UI
+                // Client De-Link: inform host so it can clear mapping, then clear token and force relink UI
+                this.network.requestDelink();
                 localStorage.removeItem('sq_token');
                 if (this.authOverlay) {
                     this.authOverlay.style.display = 'flex';

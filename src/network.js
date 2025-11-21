@@ -299,6 +299,25 @@ export class NetworkManager {
                         targetId: senderId
                     });
                 }
+            } else if (data.type === 'client_delink') {
+                // A client (or host) is requesting to de-link their Twitch account
+                const player = await this.validateToken(data.token);
+                if (player) {
+                    appendHostLog(`De-link requested for ${player.username}. Clearing linked WebSim client.`);
+                    player.linkedWebsimId = null;
+                    await savePlayer(player.twitchId, player);
+
+                    // Optionally tell that client their token is no longer valid
+                    this.room.send({
+                        type: 'token_invalid',
+                        targetId: senderId
+                    });
+
+                    // Refresh Twitch user list so UI reflects de-link
+                    this.refreshPlayerList();
+                } else {
+                    appendHostLog(`client_delink from ${senderId} failed token validation (expired/invalid).`);
+                }
             }
         };
     }
@@ -401,6 +420,16 @@ export class NetworkManager {
         this.room.send({ 
             type: 'stop_task', 
             token: localStorage.getItem('sq_token') 
+        });
+    }
+
+    // New: request a de-link so host can clear the Twitch <-> WebSim association
+    requestDelink() {
+        const token = localStorage.getItem('sq_token');
+        if (!token) return;
+        this.room.send({
+            type: 'client_delink',
+            token
         });
     }
 }
