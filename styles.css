@@ -394,3 +394,37 @@ main {
 }
 
 .skill-header img { width: 64px; height: 64px; }
+
+/* Host Console */
+.host-console {
+    background: #050509;
+    border-top: 1px solid var(--border);
+    height: 130px;
+    padding: 6px 10px;
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: var(--text-main);
+    display: flex;
+    flex-direction: column;
+}
+
+.host-console-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: bold;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+}
+
+.host-console-log {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.host-console-log div {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}

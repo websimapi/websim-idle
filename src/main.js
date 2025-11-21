@@ -20,6 +20,10 @@ async function init() {
     // Setup Host Specific UI
     if (isHost) {
         document.getElementById('host-controls').style.display = 'block';
+        const hostConsole = document.getElementById('host-console-container');
+        if (hostConsole) {
+            hostConsole.style.display = 'flex';
+        }
         // Host menu and auth overlay visibility handled in UIManager
     } else {
         // Check for existing token

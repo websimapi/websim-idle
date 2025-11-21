@@ -4,6 +4,21 @@ import { SKILLS } from './skills.js';
 // Simulation of a JWT Secret (In a real app, this is server-side only)
 const SECRET_KEY = "mock_secret_key_" + Math.random();
 
+// Helper: append log lines to the host console if present
+function appendHostLog(message) {
+    const logEl = document.getElementById('host-console-log');
+    if (!logEl) return;
+    const line = document.createElement('div');
+    const ts = new Date().toLocaleTimeString();
+    line.textContent = `[${ts}] ${message}`;
+    logEl.appendChild(line);
+    // Trim to last 200 lines
+    while (logEl.childElementCount > 200) {
+        logEl.removeChild(logEl.firstChild);
+    }
+    logEl.scrollTop = logEl.scrollHeight;
+}
+
 export class NetworkManager {
     constructor(room, isHost, user) {
         this.room = room;
@@ -29,6 +44,7 @@ export class NetworkManager {
             const savedChannel = localStorage.getItem('sq_host_channel');
             if (savedChannel) {
                 setDbChannel(savedChannel);
+                appendHostLog(`DB context set for channel "${savedChannel}"`);
             }
 
             console.log("Initializing Host Logic...");
@@ -50,6 +66,7 @@ export class NetworkManager {
         // Update DB Context
         setDbChannel(channelName);
         localStorage.setItem('sq_host_channel', channelName);
+        appendHostLog(`Connecting to Twitch channel "${channelName}"...`);
 
         if (this.tmiClient) this.tmiClient.disconnect();
 
@@ -60,10 +77,18 @@ export class NetworkManager {
             channels: [channelName]
         });
 
-        this.tmiClient.connect().catch(console.error);
+        this.tmiClient.connect().then(() => {
+            appendHostLog(`Connected to Twitch channel "${channelName}".`);
+        }).catch(err => {
+            console.error(err);
+            appendHostLog(`Error connecting to Twitch: ${err?.message || err}`);
+        });
 
         this.tmiClient.on('message', (channel, tags, message, self) => {
             if (self) return;
+            // Log every message to host console
+            const uname = tags['display-name'] || tags['username'] || 'unknown';
+            appendHostLog(`[CHAT] ${uname}: ${message}`);
             this.handleTwitchMessage(tags, message);
         }); 
 
@@ -87,6 +112,7 @@ export class NetworkManager {
         const ttl = 5 * 60 * 1000; // 5 minutes
         for (const [code, entry] of Object.entries(this.pendingLinks)) {
             if (!entry || now - entry.createdAt > ttl) {
+                appendHostLog(`Link code "${code}" expired and was removed.`);
                 delete this.pendingLinks[code];
             }
         }
@@ -101,12 +127,14 @@ export class NetworkManager {
         let player = await getPlayer(twitchId);
         if (!player) {
             player = createNewPlayer(username, twitchId);
+            appendHostLog(`New Twitch user detected: ${username} (${twitchId}).`);
         }
 
         // Check energy threshold (5 minutes)
         if (now - player.lastChatTime > 300000) { 
             if (player.energy.length < 12) {
                 player.energy.push(now); // Add energy cell
+                appendHostLog(`Energy +1 for ${username} (now ${player.energy.length}/12).`);
                 // Notify if they are online via WebSim
                 if (player.linkedWebsimId) {
                     this.room.send({
@@ -123,6 +151,7 @@ export class NetworkManager {
         // 2. Command Logic
         if (message.startsWith('!link ')) {
             const code = message.split(' ')[1];
+            appendHostLog(`!link attempt by ${username} with code "${code}".`);
             this.cleanupExpiredCodes();
             const entry = this.pendingLinks[code];
             if (entry) {
@@ -144,7 +173,10 @@ export class NetworkManager {
                 });
 
                 delete this.pendingLinks[code];
+                appendHostLog(`Link success: ${username} ↔ WebSim client ${websimClientId}.`);
                 console.log(`Linked ${username} to websim client ${websimClientId}`);
+            } else {
+                appendHostLog(`Link failed for ${username}: code "${code}" not found or expired.`);
             }
         }
 
@@ -162,10 +194,12 @@ export class NetworkManager {
 
             // Host should also be able to receive link codes and player state
             if (data.type === 'link_code_generated') {
+                appendHostLog(`Generated link code "${data.code}" for WebSim client ${senderId}.`);
                 if (this.onLinkCode) this.onLinkCode(data.code);
                 return;
             } else if (data.type === 'link_success') {
                 localStorage.setItem('sq_token', data.token);
+                appendHostLog(`Host received link_success for a client.`);
                 if (this.onLinkSuccess) this.onLinkSuccess(data.playerData);
                 return;
             } else if (data.type === 'sync_data' || data.type === 'state_update' || data.type === 'energy_update') {
@@ -182,6 +216,7 @@ export class NetworkManager {
                     websimClientId: senderId,
                     createdAt: Date.now()
                 };
+                appendHostLog(`Link code "${code}" created for WebSim client ${senderId}.`);
 
                 this.room.send({
                     type: 'link_code_generated',
@@ -196,6 +231,7 @@ export class NetworkManager {
                     if (player.linkedWebsimId !== senderId) {
                         player.linkedWebsimId = senderId;
                         await savePlayer(player.twitchId, player);
+                        appendHostLog(`Sync updated link for ${player.username} to WebSim client ${senderId}.`);
                     }
 
                     this.room.send({
@@ -203,6 +239,8 @@ export class NetworkManager {
                         targetId: senderId,
                         playerData: player
                     });
+                } else {
+                    appendHostLog(`Sync_request from ${senderId} failed token validation.`);
                 }
             } else if (data.type === 'start_task') {
                 const player = await this.validateToken(data.token);
@@ -220,6 +258,7 @@ export class NetworkManager {
                         };
 
                         await savePlayer(player.twitchId, player);
+                        appendHostLog(`Task "${data.taskId}" started for ${player.username}.`);
 
                         // Broadcast update
                         this.room.send({
@@ -227,11 +266,16 @@ export class NetworkManager {
                             targetId: senderId,
                             playerData: player
                         });
+                    } else {
+                        appendHostLog(`Task start denied for ${player.username}: no energy.`);
                     }
+                } else {
+                    appendHostLog(`start_task from ${senderId} failed token validation.`);
                 }
             } else if (data.type === 'stop_task') {
                 const player = await this.validateToken(data.token);
                 if (player) {
+                    appendHostLog(`Task "${player.activeTask?.taskId || 'unknown'}" stopped for ${player.username}.`);
                     player.activeTask = null;
                     await savePlayer(player.twitchId, player);
                     this.room.send({
@@ -239,6 +283,8 @@ export class NetworkManager {
                         targetId: senderId,
                         playerData: player
                     });
+                } else {
+                    appendHostLog(`stop_task from ${senderId} failed token validation.`);
                 }
             }
         };
