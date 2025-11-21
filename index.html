@@ -76,9 +76,21 @@
                     <img src="energy_icon.png" alt="Energy">
                     <span id="energy-count">0/12</span>
                 </div>
-                <div class="user-info">
+                <div class="user-info" id="user-info">
                     <img id="user-avatar" src="" alt="">
                     <span id="username">Guest</span>
+                    <div id="client-user-dropdown" class="dropdown-panel client-user-dropdown" style="display:none;">
+                        <div class="dropdown-section">
+                            <div class="dropdown-section-title">Account</div>
+                            <ul class="dropdown-list">
+                                <li><span class="user-name">Option 1</span></li>
+                                <li><span class="user-name">Option 2</span></li>
+                                <li>
+                                    <button id="client-delink-btn" class="small-btn danger-btn">De-Link</button>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
             </div>
         </header>

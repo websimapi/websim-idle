@@ -25,6 +25,11 @@ export class UIManager {
         this.twitchUsersList = document.getElementById('twitch-users-list');
         this.hostLinkCopyStatus = document.getElementById('host-link-copy-status');
 
+        // Client user dropdown elements
+        this.userInfoEl = document.getElementById('user-info');
+        this.clientUserDropdown = document.getElementById('client-user-dropdown');
+        this.clientDelinkBtn = document.getElementById('client-delink-btn');
+
         // Pre-fill host channel if saved
         const savedChannel = localStorage.getItem('sq_host_channel');
         const channelInput = document.getElementById('twitch-channel-input');
@@ -45,6 +50,11 @@ export class UIManager {
             if (clientControls) {
                 clientControls.style.display = 'none';
             }
+        }
+
+        // Initialize host link button label based on token
+        if (this.isHost && this.hostLinkBtn) {
+            this.updateHostLinkButtonState();
         }
 
         this.initListeners();
@@ -95,7 +105,48 @@ export class UIManager {
 
         if (this.isHost && this.hostLinkBtn) {
             this.hostLinkBtn.addEventListener('click', () => {
-                this.network.requestLinkCode();
+                const token = localStorage.getItem('sq_token');
+                if (token) {
+                    // Host De-Link: clear token and reset UI state
+                    localStorage.removeItem('sq_token');
+                    if (this.hostLinkCodeSmall) this.hostLinkCodeSmall.innerText = '';
+                    if (this.hostLinkCopyStatus) this.hostLinkCopyStatus.innerText = '';
+                    this.updateHostLinkButtonState();
+                } else {
+                    // Host Link: request a new link code
+                    this.network.requestLinkCode();
+                }
+            });
+        }
+
+        // Client user dropdown interactions (for non-host clients)
+        if (!this.isHost && this.userInfoEl && this.clientUserDropdown) {
+            this.userInfoEl.addEventListener('click', (e) => {
+                // Avoid toggling when clicking inside the dropdown content
+                if (this.clientUserDropdown.contains(e.target)) return;
+                const isOpen = this.clientUserDropdown.style.display === 'block';
+                this.clientUserDropdown.style.display = isOpen ? 'none' : 'block';
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!this.userInfoEl) return;
+                if (!this.userInfoEl.contains(e.target)) {
+                    this.clientUserDropdown.style.display = 'none';
+                }
+            });
+        }
+
+        if (!this.isHost && this.clientDelinkBtn) {
+            this.clientDelinkBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // Client De-Link: clear token and force relink UI
+                localStorage.removeItem('sq_token');
+                if (this.authOverlay) {
+                    this.authOverlay.style.display = 'flex';
+                }
+                if (this.clientUserDropdown) {
+                    this.clientUserDropdown.style.display = 'none';
+                }
             });
         }
 
@@ -128,6 +179,10 @@ export class UIManager {
             if (!this.isHost && this.authOverlay) {
                 this.authOverlay.style.display = 'none';
             }
+            // After a successful link, update host button text if this is host
+            if (this.isHost && this.hostLinkBtn) {
+                this.updateHostLinkButtonState();
+            }
             this.updateState(playerData);
         };
 
@@ -152,6 +207,18 @@ export class UIManager {
             this.network.onPlayerListUpdate = (players, peers) => {
                 this.renderTwitchUsers(players, peers);
             };
+        }
+    }
+
+    updateHostLinkButtonState() {
+        if (!this.hostLinkBtn) return;
+        const token = localStorage.getItem('sq_token');
+        if (token) {
+            this.hostLinkBtn.textContent = 'De-Link';
+            this.hostLinkBtn.classList.add('danger-btn');
+        } else {
+            this.hostLinkBtn.textContent = 'Link';
+            this.hostLinkBtn.classList.remove('danger-btn');
         }
     }
 

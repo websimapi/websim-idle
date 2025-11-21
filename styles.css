@@ -205,6 +205,10 @@ header {
     filter: brightness(1.1);
 }
 
+.danger-btn {
+    background: var(--danger);
+}
+
 .host-link-info {
     font-size: 0.75rem;
     color: var(--primary);
@@ -255,9 +259,20 @@ header {
 
 #energy-count { color: #4ade80; font-weight: bold; font-family: monospace; }
 
-.user-info { display: flex; align-items: center; gap: 10px; }
+.user-info { 
+    display: flex; 
+    align-items: center; 
+    gap: 10px; 
+    position: relative;
+    cursor: pointer;
+}
 
 #user-avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--primary); }
+
+.client-user-dropdown {
+    top: 110%;
+    right: 0;
+}
 
 /* Main Layout */
 main {
