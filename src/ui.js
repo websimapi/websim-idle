@@ -223,8 +223,24 @@ export class UIManager {
     }
 
     updateAuthVisualState() {
-        const token = localStorage.getItem('sq_token');
-        const isLinked = !!token;
+        const rawToken = localStorage.getItem('sq_token');
+        let isLinked = false;
+
+        // Treat only non-expired tokens as "linked"
+        if (rawToken) {
+            try {
+                const decoded = JSON.parse(atob(rawToken));
+                if (decoded.exp && decoded.exp > Date.now()) {
+                    isLinked = true;
+                } else {
+                    // Token expired – clean it up
+                    localStorage.removeItem('sq_token');
+                }
+            } catch (e) {
+                // Malformed token – clean it up
+                localStorage.removeItem('sq_token');
+            }
+        }
 
         // Global link button vs user-info
         if (this.globalLinkBtn) {
