@@ -54,12 +54,14 @@
                         <div class="dropdown-section">
                             <div class="dropdown-section-header">
                                 <span>Host Account</span>
-                                <button id="host-link-btn" class="small-btn">Link</button>
                             </div>
                             <div class="host-link-info">
                                 <span id="host-link-code-small"></span>
                                 <span id="host-link-copy-status" class="copy-status"></span>
                             </div>
+                            <button id="host-delink-btn" class="small-btn danger-btn" style="margin-top:4px; display:none;">
+                                De-Link
+                            </button>
                         </div>
                         <div class="dropdown-section">
                             <div class="dropdown-section-title">Realtime Users</div>
@@ -76,6 +78,9 @@
                     <img src="energy_icon.png" alt="Energy">
                     <span id="energy-count">0/12</span>
                 </div>
+                <button id="global-link-btn" class="primary-btn small-global-link">
+                    Link Account
+                </button>
                 <div class="user-info" id="user-info">
                     <img id="user-avatar" src="" alt="">
                     <span id="username">Guest</span>
@@ -114,9 +119,7 @@
                         <h2>Connect Account</h2>
                         <p>Link your Twitch account to start collecting energy and resources.</p>
                         
-                        <!-- Host controls moved to header; keep client controls here -->
                         <div id="client-controls">
-                            <button id="request-link-btn" class="primary-btn">Link Account</button>
                             <div id="link-instructions" style="display:none;">
                                 <p>Type this command in the Twitch Chat:</p>
                                 <div class="code-box">!link <span id="link-code">...</span></div>

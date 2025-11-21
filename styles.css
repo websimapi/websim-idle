@@ -352,6 +352,12 @@ main {
 
 .primary-btn:hover { filter: brightness(1.1); }
 
+.small-global-link {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    margin-top: 0;
+}
+
 .code-box {
     background: #000;
     font-family: monospace;

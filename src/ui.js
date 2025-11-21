@@ -19,16 +19,17 @@ export class UIManager {
         this.hostUserMenu = document.getElementById('host-user-menu');
         this.hostUserBtn = document.getElementById('host-user-btn');
         this.hostUserDropdown = document.getElementById('host-user-dropdown');
-        this.hostLinkBtn = document.getElementById('host-link-btn');
         this.hostLinkCodeSmall = document.getElementById('host-link-code-small');
         this.realtimeUsersList = document.getElementById('realtime-users-list');
         this.twitchUsersList = document.getElementById('twitch-users-list');
         this.hostLinkCopyStatus = document.getElementById('host-link-copy-status');
+        this.hostDelinkBtn = document.getElementById('host-delink-btn');
 
-        // Client user dropdown elements
+        // Client/global user elements
         this.userInfoEl = document.getElementById('user-info');
         this.clientUserDropdown = document.getElementById('client-user-dropdown');
         this.clientDelinkBtn = document.getElementById('client-delink-btn');
+        this.globalLinkBtn = document.getElementById('global-link-btn');
 
         // Pre-fill host channel if saved
         const savedChannel = localStorage.getItem('sq_host_channel');
@@ -42,32 +43,47 @@ export class UIManager {
             if (this.hostUserMenu) {
                 this.hostUserMenu.style.display = 'flex';
             }
-            // Host shouldn't see client auth overlay
+            // Host shouldn't see client auth overlay by default
             if (this.authOverlay) {
                 this.authOverlay.style.display = 'none';
             }
             const clientControls = document.getElementById('client-controls');
             if (clientControls) {
-                clientControls.style.display = 'none';
+                clientControls.style.display = 'block';
             }
-        }
-
-        // Initialize host link button label based on token
-        if (this.isHost && this.hostLinkBtn) {
-            this.updateHostLinkButtonState();
+        } else {
+            // For regular clients, hide overlay until they choose to link
+            if (this.authOverlay) {
+                this.authOverlay.style.display = 'none';
+            }
         }
 
         this.initListeners();
         this.renderSkillsList();
+        this.updateAuthVisualState();
     }
 
     initListeners() {
-        const requestLinkBtn = document.getElementById('request-link-btn');
-        if (requestLinkBtn) {
-            requestLinkBtn.addEventListener('click', () => {
-                this.network.requestLinkCode();
-                requestLinkBtn.style.display = 'none';
-                document.getElementById('link-instructions').style.display = 'block';
+        // Global Link button (host & client)
+        if (this.globalLinkBtn) {
+            this.globalLinkBtn.addEventListener('click', () => {
+                const hasToken = !!localStorage.getItem('sq_token');
+                if (hasToken) return;
+
+                if (this.isHost) {
+                    // Host: request link code, show in host panel and copy
+                    this.network.requestLinkCode();
+                } else {
+                    // Client: show overlay + instructions and request code
+                    if (this.authOverlay) {
+                        this.authOverlay.style.display = 'flex';
+                    }
+                    const linkInstructions = document.getElementById('link-instructions');
+                    if (linkInstructions) {
+                        linkInstructions.style.display = 'block';
+                    }
+                    this.network.requestLinkCode();
+                }
             });
         }
 
@@ -103,20 +119,16 @@ export class UIManager {
             });
         }
 
-        if (this.isHost && this.hostLinkBtn) {
-            this.hostLinkBtn.addEventListener('click', () => {
+        // Host De-Link button
+        if (this.isHost && this.hostDelinkBtn) {
+            this.hostDelinkBtn.addEventListener('click', () => {
                 const token = localStorage.getItem('sq_token');
-                if (token) {
-                    // Host De-Link: notify host logic, then clear token and reset UI state
-                    this.network.requestDelink();
-                    localStorage.removeItem('sq_token');
-                    if (this.hostLinkCodeSmall) this.hostLinkCodeSmall.innerText = '';
-                    if (this.hostLinkCopyStatus) this.hostLinkCopyStatus.innerText = '';
-                    this.updateHostLinkButtonState();
-                } else {
-                    // Host Link: request a new link code
-                    this.network.requestLinkCode();
-                }
+                if (!token) return;
+                this.network.requestDelink();
+                localStorage.removeItem('sq_token');
+                if (this.hostLinkCodeSmall) this.hostLinkCodeSmall.innerText = '';
+                if (this.hostLinkCopyStatus) this.hostLinkCopyStatus.innerText = '';
+                this.updateAuthVisualState();
             });
         }
 
@@ -140,15 +152,15 @@ export class UIManager {
         if (!this.isHost && this.clientDelinkBtn) {
             this.clientDelinkBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                // Client De-Link: inform host so it can clear mapping, then clear token and force relink UI
                 this.network.requestDelink();
                 localStorage.removeItem('sq_token');
                 if (this.authOverlay) {
-                    this.authOverlay.style.display = 'flex';
+                    this.authOverlay.style.display = 'none';
                 }
                 if (this.clientUserDropdown) {
                     this.clientUserDropdown.style.display = 'none';
                 }
+                this.updateAuthVisualState();
             });
         }
 
@@ -181,10 +193,7 @@ export class UIManager {
             if (!this.isHost && this.authOverlay) {
                 this.authOverlay.style.display = 'none';
             }
-            // After a successful link, update host button text if this is host
-            if (this.isHost && this.hostLinkBtn) {
-                this.updateHostLinkButtonState();
-            }
+            this.updateAuthVisualState();
             this.updateState(playerData);
         };
 
@@ -196,8 +205,9 @@ export class UIManager {
         if (!this.isHost) {
             this.network.onTokenInvalid = () => {
                 if (this.authOverlay) {
-                    this.authOverlay.style.display = 'flex';
+                    this.authOverlay.style.display = 'none';
                 }
+                this.updateAuthVisualState();
             };
         }
 
@@ -212,15 +222,21 @@ export class UIManager {
         }
     }
 
-    updateHostLinkButtonState() {
-        if (!this.hostLinkBtn) return;
+    updateAuthVisualState() {
         const token = localStorage.getItem('sq_token');
-        if (token) {
-            this.hostLinkBtn.textContent = 'De-Link';
-            this.hostLinkBtn.classList.add('danger-btn');
-        } else {
-            this.hostLinkBtn.textContent = 'Link';
-            this.hostLinkBtn.classList.remove('danger-btn');
+        const isLinked = !!token;
+
+        // Global link button vs user-info
+        if (this.globalLinkBtn) {
+            this.globalLinkBtn.style.display = isLinked ? 'none' : 'inline-flex';
+        }
+        if (this.userInfoEl) {
+            this.userInfoEl.style.display = isLinked ? 'flex' : 'none';
+        }
+
+        // Host De-Link visibility
+        if (this.isHost && this.hostDelinkBtn) {
+            this.hostDelinkBtn.style.display = isLinked ? 'inline-block' : 'none';
         }
     }
 
