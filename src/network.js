@@ -157,6 +157,24 @@ export class NetworkManager {
             const data = event.data;
             const senderId = data.clientId; // WebSim client ID
 
+            // Ignore directed messages not meant for this host client
+            if (data.targetId && data.targetId !== this.room.clientId) return;
+
+            // Host should also be able to receive link codes and player state
+            if (data.type === 'link_code_generated') {
+                if (this.onLinkCode) this.onLinkCode(data.code);
+                return;
+            } else if (data.type === 'link_success') {
+                localStorage.setItem('sq_token', data.token);
+                if (this.onLinkSuccess) this.onLinkSuccess(data.playerData);
+                return;
+            } else if (data.type === 'sync_data' || data.type === 'state_update' || data.type === 'energy_update') {
+                if (data.playerData && this.onStateUpdate) {
+                    this.onStateUpdate(data.playerData);
+                }
+                return;
+            }
+
             if (data.type === 'request_link_code') {
                 // Generate 6-character code
                 const code = this.generateLinkCode();
