@@ -90,6 +90,43 @@ header {
 
 .header-right { display: flex; gap: 20px; align-items: center; }
 
+/* Host Twitch channel bar in header */
+.host-top-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.host-top-bar input {
+    background: #000;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 8px;
+    color: var(--text-main);
+    font-size: 0.85rem;
+    min-width: 120px;
+}
+
+.host-top-bar button {
+    background: var(--accent);
+    border: none;
+    color: #fff;
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.host-top-bar button:hover {
+    filter: brightness(1.1);
+}
+
+.host-top-bar #tmi-status {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+}
+
 .energy-display {
     display: flex;
     align-items: center;
