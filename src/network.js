@@ -10,7 +10,7 @@ export class NetworkManager {
         this.isHost = isHost;
         this.user = user;
         this.tmiClient = null;
-        this.pendingLinks = {}; // code -> websimClientId
+        this.pendingLinks = {}; // code -> { websimClientId, createdAt }
 
         this.onEnergyUpdate = null;
         this.onTaskUpdate = null;
@@ -73,6 +73,25 @@ export class NetworkManager {
         return true;
     }
 
+    generateLinkCode() {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let code = '';
+        for (let i = 0; i < 6; i++) {
+            code += chars[Math.floor(Math.random() * chars.length)];
+        }
+        return code;
+    }
+
+    cleanupExpiredCodes() {
+        const now = Date.now();
+        const ttl = 5 * 60 * 1000; // 5 minutes
+        for (const [code, entry] of Object.entries(this.pendingLinks)) {
+            if (!entry || now - entry.createdAt > ttl) {
+                delete this.pendingLinks[code];
+            }
+        }
+    }
+
     async handleTwitchMessage(tags, message) {
         const twitchId = tags['user-id'];
         const username = tags['username'];
@@ -104,8 +123,10 @@ export class NetworkManager {
         // 2. Command Logic
         if (message.startsWith('!link ')) {
             const code = message.split(' ')[1];
-            if (this.pendingLinks[code]) {
-                const websimClientId = this.pendingLinks[code];
+            this.cleanupExpiredCodes();
+            const entry = this.pendingLinks[code];
+            if (entry) {
+                const websimClientId = entry.websimClientId;
 
                 // Link them
                 player.linkedWebsimId = websimClientId;
@@ -137,9 +158,12 @@ export class NetworkManager {
             const senderId = data.clientId; // WebSim client ID
 
             if (data.type === 'request_link_code') {
-                // Generate 4 digit code
-                const code = Math.floor(1000 + Math.random() * 9000).toString();
-                this.pendingLinks[code] = senderId;
+                // Generate 6-character code
+                const code = this.generateLinkCode();
+                this.pendingLinks[code] = {
+                    websimClientId: senderId,
+                    createdAt: Date.now()
+                };
 
                 this.room.send({
                     type: 'link_code_generated',

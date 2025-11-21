@@ -234,6 +234,13 @@ header {
     font-size: 0.7rem;
 }
 
+.copy-status {
+    display: inline-block;
+    margin-left: 6px;
+    color: #4ade80;
+    font-size: 0.7rem;
+}
+
 .energy-display {
     display: flex;
     align-items: center;

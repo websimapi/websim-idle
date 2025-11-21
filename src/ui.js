@@ -23,6 +23,7 @@ export class UIManager {
         this.hostLinkCodeSmall = document.getElementById('host-link-code-small');
         this.realtimeUsersList = document.getElementById('realtime-users-list');
         this.twitchUsersList = document.getElementById('twitch-users-list');
+        this.hostLinkCopyStatus = document.getElementById('host-link-copy-status');
 
         // Pre-fill host channel if saved
         const savedChannel = localStorage.getItem('sq_host_channel');
@@ -106,6 +107,20 @@ export class UIManager {
             }
             if (this.hostLinkCodeSmall) {
                 this.hostLinkCodeSmall.innerText = `!link ${code}`;
+            }
+
+            // Host: copy to clipboard and show status
+            if (this.isHost && navigator.clipboard && this.hostLinkCopyStatus) {
+                const linkCommand = `!link ${code}`;
+                navigator.clipboard.writeText(linkCommand).then(() => {
+                    this.hostLinkCopyStatus.innerText = 'Copied to Clipboard – Paste in Twitch Chat to link';
+                    clearTimeout(this._copyStatusTimeout);
+                    this._copyStatusTimeout = setTimeout(() => {
+                        this.hostLinkCopyStatus.innerText = '';
+                    }, 4000);
+                }).catch(() => {
+                    this.hostLinkCopyStatus.innerText = '';
+                });
             }
         };
 
