@@ -25,12 +25,12 @@ async function init() {
             hostConsole.style.display = 'flex';
         }
         // Host menu and auth overlay visibility handled in UIManager
-    } else {
-        // Check for existing token
-        const token = localStorage.getItem('sq_token');
-        if (token) {
-            network.syncWithToken(token);
-        }
+    }
+
+    // Attempt auto-sync with stored token for both host and clients
+    const token = localStorage.getItem('sq_token');
+    if (token) {
+        network.syncWithToken(token);
     }
 }
 

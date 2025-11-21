@@ -149,8 +149,8 @@ export class UIManager {
                 this.renderRealtimeUsers(peers);
             };
 
-            this.network.onPlayerListUpdate = (players) => {
-                this.renderTwitchUsers(players);
+            this.network.onPlayerListUpdate = (players, peers) => {
+                this.renderTwitchUsers(players, peers);
             };
         }
     }
@@ -296,15 +296,24 @@ export class UIManager {
         });
     }
 
-    renderTwitchUsers(players) {
+    renderTwitchUsers(players, peers) {
         if (!this.twitchUsersList) return;
         this.twitchUsersList.innerHTML = '';
         players.forEach(player => {
             const li = document.createElement('li');
             const linked = player.linkedWebsimId ? 'linked' : 'unlinked';
+
+            let linkedName = '';
+            if (player.linkedWebsimId && peers && peers[player.linkedWebsimId]) {
+                const peerInfo = peers[player.linkedWebsimId];
+                linkedName = peerInfo.username || player.linkedWebsimId;
+            }
+
             li.innerHTML = `
                 <span class="user-name">${player.username}</span>
-                <span class="user-meta">(${linked})</span>
+                <span class="user-meta">
+                    (${linked}${linkedName ? ' → ' + linkedName : ''})
+                </span>
             `;
             this.twitchUsersList.appendChild(li);
         });

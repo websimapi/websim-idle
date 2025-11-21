@@ -312,6 +312,8 @@ export class NetworkManager {
                 username: info.username
             }));
             this.onPresenceUpdate(peers);
+            // Also refresh Twitch users list so linked WebSim usernames stay up to date
+            this.refreshPlayerList();
         });
 
         // Initial fire
@@ -327,7 +329,8 @@ export class NetworkManager {
     async refreshPlayerList() {
         if (!this.isHost || !this.onPlayerListUpdate) return;
         const players = await getAllPlayers();
-        this.onPlayerListUpdate(players);
+        const peers = this.room.peers || {};
+        this.onPlayerListUpdate(players, peers);
     }
 
     async validateToken(token) {
