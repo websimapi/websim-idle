@@ -127,6 +127,113 @@ header {
     color: var(--text-dim);
 }
 
+/* Host user dropdown */
+.host-user-menu {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.host-user-btn {
+    background: #000;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 6px 12px;
+    color: var(--text-main);
+    font-size: 0.85rem;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.host-user-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.dropdown-panel {
+    position: absolute;
+    top: 110%;
+    right: 0;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    min-width: 220px;
+    max-height: 60vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    z-index: 200;
+}
+
+.dropdown-section {
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+}
+
+.dropdown-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.dropdown-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    margin-bottom: 4px;
+}
+
+.dropdown-section-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+}
+
+.small-btn {
+    background: var(--accent);
+    border: none;
+    color: #fff;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 0.7rem;
+    cursor: pointer;
+}
+
+.small-btn:hover {
+    filter: brightness(1.1);
+}
+
+.host-link-info {
+    font-size: 0.75rem;
+    color: var(--primary);
+}
+
+.dropdown-list {
+    list-style: none;
+    padding-left: 0;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.dropdown-list li {
+    font-size: 0.8rem;
+    padding: 2px 0;
+    display: flex;
+    justify-content: space-between;
+    gap: 4px;
+}
+
+.dropdown-list .user-name {
+    color: var(--text-main);
+}
+
+.dropdown-list .user-meta {
+    color: var(--text-dim);
+    font-size: 0.7rem;
+}
+
 .energy-display {
     display: flex;
     align-items: center;

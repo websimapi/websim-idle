@@ -1,10 +1,11 @@
 import { SKILLS } from './skills.js';
 
 export class UIManager {
-    constructor(networkManager) {
+    constructor(networkManager, isHost = false) {
         this.network = networkManager;
         this.state = null;
         this.activeTaskInterval = null;
+        this.isHost = isHost;
 
         // Elements
         this.skillsList = document.getElementById('skills-list');
@@ -14,6 +15,15 @@ export class UIManager {
         this.energyCount = document.getElementById('energy-count');
         this.usernameDisplay = document.getElementById('username');
 
+        // Host-specific elements
+        this.hostUserMenu = document.getElementById('host-user-menu');
+        this.hostUserBtn = document.getElementById('host-user-btn');
+        this.hostUserDropdown = document.getElementById('host-user-dropdown');
+        this.hostLinkBtn = document.getElementById('host-link-btn');
+        this.hostLinkCodeSmall = document.getElementById('host-link-code-small');
+        this.realtimeUsersList = document.getElementById('realtime-users-list');
+        this.twitchUsersList = document.getElementById('twitch-users-list');
+
         // Pre-fill host channel if saved
         const savedChannel = localStorage.getItem('sq_host_channel');
         const channelInput = document.getElementById('twitch-channel-input');
@@ -21,43 +31,104 @@ export class UIManager {
             channelInput.value = savedChannel;
         }
 
+        // Host UI visibility
+        if (this.isHost) {
+            if (this.hostUserMenu) {
+                this.hostUserMenu.style.display = 'flex';
+            }
+            // Host shouldn't see client auth overlay
+            if (this.authOverlay) {
+                this.authOverlay.style.display = 'none';
+            }
+            const clientControls = document.getElementById('client-controls');
+            if (clientControls) {
+                clientControls.style.display = 'none';
+            }
+        }
+
         this.initListeners();
         this.renderSkillsList();
     }
 
     initListeners() {
-        document.getElementById('request-link-btn').addEventListener('click', () => {
-            this.network.requestLinkCode();
-            document.getElementById('request-link-btn').style.display = 'none';
-            document.getElementById('link-instructions').style.display = 'block';
-        });
+        const requestLinkBtn = document.getElementById('request-link-btn');
+        if (requestLinkBtn) {
+            requestLinkBtn.addEventListener('click', () => {
+                this.network.requestLinkCode();
+                requestLinkBtn.style.display = 'none';
+                document.getElementById('link-instructions').style.display = 'block';
+            });
+        }
 
-        document.getElementById('connect-twitch-btn').addEventListener('click', () => {
-            const channel = document.getElementById('twitch-channel-input').value;
-            if(channel) {
-                this.network.connectTwitch(channel);
-                document.getElementById('tmi-status').innerText = "Status: Connected to " + channel;
-                document.getElementById('tmi-status').style.color = "#4ade80";
-            }
-        });
+        const connectBtn = document.getElementById('connect-twitch-btn');
+        if (connectBtn) {
+            connectBtn.addEventListener('click', () => {
+                const channel = document.getElementById('twitch-channel-input').value;
+                if(channel) {
+                    this.network.connectTwitch(channel);
+                    document.getElementById('tmi-status').innerText = "Status: Connected to " + channel;
+                    document.getElementById('tmi-status').style.color = "#4ade80";
+                }
+            });
+        }
 
         document.getElementById('stop-btn').addEventListener('click', () => {
             this.network.stopTask();
         });
 
+        // Host dropdown interactions
+        if (this.isHost && this.hostUserBtn && this.hostUserDropdown) {
+            this.hostUserBtn.addEventListener('click', () => {
+                const isOpen = this.hostUserDropdown.style.display === 'block';
+                this.hostUserDropdown.style.display = isOpen ? 'none' : 'block';
+            });
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!this.hostUserMenu) return;
+                if (!this.hostUserMenu.contains(e.target)) {
+                    this.hostUserDropdown.style.display = 'none';
+                }
+            });
+        }
+
+        if (this.isHost && this.hostLinkBtn) {
+            this.hostLinkBtn.addEventListener('click', () => {
+                this.network.requestLinkCode();
+            });
+        }
+
         // Network callbacks
         this.network.onLinkCode = (code) => {
-            document.getElementById('link-code').innerText = code;
+            const codeSpan = document.getElementById('link-code');
+            if (codeSpan) {
+                codeSpan.innerText = code;
+            }
+            if (this.hostLinkCodeSmall) {
+                this.hostLinkCodeSmall.innerText = `!link ${code}`;
+            }
         };
 
         this.network.onLinkSuccess = (playerData) => {
-            this.authOverlay.style.display = 'none';
+            if (!this.isHost && this.authOverlay) {
+                this.authOverlay.style.display = 'none';
+            }
             this.updateState(playerData);
         };
 
         this.network.onStateUpdate = (playerData) => {
             this.updateState(playerData);
         };
+
+        if (this.isHost) {
+            this.network.onPresenceUpdate = (peers) => {
+                this.renderRealtimeUsers(peers);
+            };
+
+            this.network.onPlayerListUpdate = (players) => {
+                this.renderTwitchUsers(players);
+            };
+        }
     }
 
     renderSkillsList() {
@@ -189,5 +260,29 @@ export class UIManager {
             this.activeTaskInterval = null;
         }
         document.getElementById('task-progress').style.width = '0%';
+    }
+
+    renderRealtimeUsers(peers) {
+        if (!this.realtimeUsersList) return;
+        this.realtimeUsersList.innerHTML = '';
+        peers.forEach(peer => {
+            const li = document.createElement('li');
+            li.textContent = peer.username || peer.id;
+            this.realtimeUsersList.appendChild(li);
+        });
+    }
+
+    renderTwitchUsers(players) {
+        if (!this.twitchUsersList) return;
+        this.twitchUsersList.innerHTML = '';
+        players.forEach(player => {
+            const li = document.createElement('li');
+            const linked = player.linkedWebsimId ? 'linked' : 'unlinked';
+            li.innerHTML = `
+                <span class="user-name">${player.username}</span>
+                <span class="user-meta">(${linked})</span>
+            `;
+            this.twitchUsersList.appendChild(li);
+        });
     }
 }

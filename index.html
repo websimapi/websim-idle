@@ -44,6 +44,33 @@
                     <button id="connect-twitch-btn">Connect</button>
                     <span id="tmi-status">Status: Disconnected</span>
                 </div>
+
+                <!-- Host user dropdown (only shown for creator/host) -->
+                <div class="host-user-menu" id="host-user-menu" style="display:none;">
+                    <button id="host-user-btn" class="host-user-btn">
+                        Users ▾
+                    </button>
+                    <div id="host-user-dropdown" class="dropdown-panel" style="display:none;">
+                        <div class="dropdown-section">
+                            <div class="dropdown-section-header">
+                                <span>Host Account</span>
+                                <button id="host-link-btn" class="small-btn">Link</button>
+                            </div>
+                            <div class="host-link-info">
+                                <span id="host-link-code-small"></span>
+                            </div>
+                        </div>
+                        <div class="dropdown-section">
+                            <div class="dropdown-section-title">Realtime Users</div>
+                            <ul id="realtime-users-list" class="dropdown-list"></ul>
+                        </div>
+                        <div class="dropdown-section">
+                            <div class="dropdown-section-title">Twitch Users</div>
+                            <ul id="twitch-users-list" class="dropdown-list"></ul>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="energy-display" id="energy-display">
                     <img src="energy_icon.png" alt="Energy">
                     <span id="energy-count">0/12</span>

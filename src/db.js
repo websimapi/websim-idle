@@ -50,6 +50,22 @@ export async function getPlayer(twitchId) {
     }
 }
 
+export async function getAllPlayers() {
+    const db = await initDB();
+    const records = await db.getAll(STORE_NAME);
+    const players = [];
+    for (const record of records) {
+        try {
+            const decompressed = pako.inflate(record.data, { to: 'string' });
+            const data = JSON.parse(decompressed);
+            players.push(data);
+        } catch (e) {
+            console.error("Error inflating player in list", e);
+        }
+    }
+    return players;
+}
+
 export function createNewPlayer(username, twitchId) {
     return {
         username,

@@ -1,4 +1,4 @@
-import { savePlayer, getPlayer, createNewPlayer, setDbChannel } from './db.js';
+import { savePlayer, getPlayer, createNewPlayer, setDbChannel, getAllPlayers } from './db.js';
 import { SKILLS } from './skills.js';
 
 // Simulation of a JWT Secret (In a real app, this is server-side only)
@@ -15,6 +15,10 @@ export class NetworkManager {
         this.onEnergyUpdate = null;
         this.onTaskUpdate = null;
         this.onLinkSuccess = null;
+        this.onLinkCode = null;
+        this.onStateUpdate = null;
+        this.onPresenceUpdate = null;
+        this.onPlayerListUpdate = null;
 
         this.initialize();
     }
@@ -29,6 +33,9 @@ export class NetworkManager {
 
             console.log("Initializing Host Logic...");
             this.setupHostListeners();
+            this.setupPresenceWatcher();
+            // Initial load of Twitch users for current DB context
+            this.refreshPlayerList();
         } else {
             console.log("Initializing Client Logic...");
             this.setupClientListeners();
@@ -59,6 +66,9 @@ export class NetworkManager {
             if (self) return;
             this.handleTwitchMessage(tags, message);
         }); 
+
+        // Reload Twitch users for this channel's DB
+        this.refreshPlayerList();
 
         return true;
     }
@@ -116,6 +126,9 @@ export class NetworkManager {
                 console.log(`Linked ${username} to websim client ${websimClientId}`);
             }
         }
+
+        // Update Twitch user list in dropdown
+        this.refreshPlayerList();
     }
 
     setupHostListeners() {
@@ -187,6 +200,33 @@ export class NetworkManager {
                 }
             }
         };
+    }
+
+    setupPresenceWatcher() {
+        // Host tracks realtime Websim users
+        this.room.subscribePresence(() => {
+            if (!this.onPresenceUpdate) return;
+            const peers = Object.entries(this.room.peers || {}).map(([id, info]) => ({
+                id,
+                username: info.username
+            }));
+            this.onPresenceUpdate(peers);
+        });
+
+        // Initial fire
+        if (this.onPresenceUpdate) {
+            const peers = Object.entries(this.room.peers || {}).map(([id, info]) => ({
+                id,
+                username: info.username
+            }));
+            this.onPresenceUpdate(peers);
+        }
+    }
+
+    async refreshPlayerList() {
+        if (!this.isHost || !this.onPlayerListUpdate) return;
+        const players = await getAllPlayers();
+        this.onPlayerListUpdate(players);
     }
 
     async validateToken(token) {
