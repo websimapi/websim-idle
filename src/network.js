@@ -34,6 +34,7 @@ export class NetworkManager {
         this.onStateUpdate = null;
         this.onPresenceUpdate = null;
         this.onPlayerListUpdate = null;
+        this.onTokenInvalid = null; // fired when host rejects/expired token
 
         this.initialize();
     }
@@ -198,7 +199,7 @@ export class NetworkManager {
                 if (this.onLinkCode) this.onLinkCode(data.code);
                 return;
             } else if (data.type === 'link_success') {
-                localStorage.setItem('sq_token', data.token);
+                // Host does not need to store client tokens; just log
                 appendHostLog(`Host received link_success for a client.`);
                 if (this.onLinkSuccess) this.onLinkSuccess(data.playerData);
                 return;
@@ -240,7 +241,11 @@ export class NetworkManager {
                         playerData: player
                     });
                 } else {
-                    appendHostLog(`Sync_request from ${senderId} failed token validation.`);
+                    appendHostLog(`sync_request from ${senderId} failed token validation (expired/invalid).`);
+                    this.room.send({
+                        type: 'token_invalid',
+                        targetId: senderId
+                    });
                 }
             } else if (data.type === 'start_task') {
                 const player = await this.validateToken(data.token);
@@ -270,7 +275,11 @@ export class NetworkManager {
                         appendHostLog(`Task start denied for ${player.username}: no energy.`);
                     }
                 } else {
-                    appendHostLog(`start_task from ${senderId} failed token validation.`);
+                    appendHostLog(`start_task from ${senderId} failed token validation (expired/invalid).`);
+                    this.room.send({
+                        type: 'token_invalid',
+                        targetId: senderId
+                    });
                 }
             } else if (data.type === 'stop_task') {
                 const player = await this.validateToken(data.token);
@@ -284,7 +293,11 @@ export class NetworkManager {
                         playerData: player
                     });
                 } else {
-                    appendHostLog(`stop_task from ${senderId} failed token validation.`);
+                    appendHostLog(`stop_task from ${senderId} failed token validation (expired/invalid).`);
+                    this.room.send({
+                        type: 'token_invalid',
+                        targetId: senderId
+                    });
                 }
             }
         };
@@ -353,6 +366,11 @@ export class NetworkManager {
                     if (data.playerData && this.onStateUpdate) {
                         this.onStateUpdate(data.playerData);
                     }
+                    break;
+                case 'token_invalid':
+                    // Host rejected token (likely expired) – clear it and notify UI
+                    localStorage.removeItem('sq_token');
+                    if (this.onTokenInvalid) this.onTokenInvalid();
                     break;
             }
         };

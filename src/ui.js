@@ -135,6 +135,15 @@ export class UIManager {
             this.updateState(playerData);
         };
 
+        // When host tells us our token is invalid/expired, force re-link flow
+        if (!this.isHost) {
+            this.network.onTokenInvalid = () => {
+                if (this.authOverlay) {
+                    this.authOverlay.style.display = 'flex';
+                }
+            };
+        }
+
         if (this.isHost) {
             this.network.onPresenceUpdate = (peers) => {
                 this.renderRealtimeUsers(peers);
