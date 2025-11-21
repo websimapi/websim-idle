@@ -1,4 +1,4 @@
-import { savePlayer, getPlayer, createNewPlayer } from './db.js';
+import { savePlayer, getPlayer, createNewPlayer, setDbChannel } from './db.js';
 import { SKILLS } from './skills.js';
 
 // Simulation of a JWT Secret (In a real app, this is server-side only)
@@ -21,6 +21,12 @@ export class NetworkManager {
 
     async initialize() {
         if (this.isHost) {
+            // Restore channel context if available
+            const savedChannel = localStorage.getItem('sq_host_channel');
+            if (savedChannel) {
+                setDbChannel(savedChannel);
+            }
+
             console.log("Initializing Host Logic...");
             this.setupHostListeners();
         } else {
@@ -33,6 +39,11 @@ export class NetworkManager {
 
     connectTwitch(channelName) {
         if (!this.isHost) return;
+
+        // Update DB Context
+        setDbChannel(channelName);
+        localStorage.setItem('sq_host_channel', channelName);
+
         if (this.tmiClient) this.tmiClient.disconnect();
 
         // tmi is global from the script tag fallback if import fails, or import map

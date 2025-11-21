@@ -14,6 +14,13 @@ export class UIManager {
         this.energyCount = document.getElementById('energy-count');
         this.usernameDisplay = document.getElementById('username');
 
+        // Pre-fill host channel if saved
+        const savedChannel = localStorage.getItem('sq_host_channel');
+        const channelInput = document.getElementById('twitch-channel-input');
+        if (savedChannel && channelInput) {
+            channelInput.value = savedChannel;
+        }
+
         this.initListeners();
         this.renderSkillsList();
     }

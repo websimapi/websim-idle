@@ -1,8 +1,19 @@
 import { openDB } from 'idb';
 import pako from 'pako';
 
-const DB_NAME = 'StreamQuestDB';
+let DB_NAME = 'StreamQuestDB';
 const STORE_NAME = 'players';
+
+export function setDbChannel(channelName) {
+    if (channelName) {
+        // Sanitize to ensure valid db name characters
+        const clean = channelName.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+        if (clean) {
+            DB_NAME = `StreamQuestDB_${clean}`;
+            console.log('Database context switched to:', DB_NAME);
+        }
+    }
+}
 
 // Initialize DB
 export async function initDB() {
