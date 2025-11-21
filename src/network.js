@@ -1,0 +1,246 @@
+import { savePlayer, getPlayer, createNewPlayer } from './db.js';
+import { SKILLS } from './skills.js';
+
+// Simulation of a JWT Secret (In a real app, this is server-side only)
+const SECRET_KEY = "mock_secret_key_" + Math.random();
+
+export class NetworkManager {
+    constructor(room, isHost, user) {
+        this.room = room;
+        this.isHost = isHost;
+        this.user = user;
+        this.tmiClient = null;
+        this.pendingLinks = {}; // code -> websimClientId
+
+        this.onEnergyUpdate = null;
+        this.onTaskUpdate = null;
+        this.onLinkSuccess = null;
+
+        this.initialize();
+    }
+
+    async initialize() {
+        if (this.isHost) {
+            console.log("Initializing Host Logic...");
+            this.setupHostListeners();
+        } else {
+            console.log("Initializing Client Logic...");
+            this.setupClientListeners();
+        }
+    }
+
+    // --- HOST LOGIC ---
+
+    connectTwitch(channelName) {
+        if (!this.isHost) return;
+        if (this.tmiClient) this.tmiClient.disconnect();
+
+        // tmi is global from the script tag fallback if import fails, or import map
+        const tmi = window.tmi; 
+
+        this.tmiClient = new tmi.Client({
+            channels: [channelName]
+        });
+
+        this.tmiClient.connect().catch(console.error);
+
+        this.tmiClient.on('message', (channel, tags, message, self) => {
+            if (self) return;
+            this.handleTwitchMessage(tags, message);
+        }); 
+
+        return true;
+    }
+
+    async handleTwitchMessage(tags, message) {
+        const twitchId = tags['user-id'];
+        const username = tags['username'];
+        const now = Date.now();
+
+        // 1. Energy Logic
+        let player = await getPlayer(twitchId);
+        if (!player) {
+            player = createNewPlayer(username, twitchId);
+        }
+
+        // Check energy threshold (5 minutes)
+        if (now - player.lastChatTime > 300000) { 
+            if (player.energy.length < 12) {
+                player.energy.push(now); // Add energy cell
+                // Notify if they are online via WebSim
+                if (player.linkedWebsimId) {
+                    this.room.send({
+                        type: 'energy_update',
+                        targetId: player.linkedWebsimId,
+                        energy: player.energy
+                    });
+                }
+            }
+            player.lastChatTime = now;
+            await savePlayer(twitchId, player);
+        }
+
+        // 2. Command Logic
+        if (message.startsWith('!link ')) {
+            const code = message.split(' ')[1];
+            if (this.pendingLinks[code]) {
+                const websimClientId = this.pendingLinks[code];
+
+                // Link them
+                player.linkedWebsimId = websimClientId;
+                await savePlayer(twitchId, player);
+
+                // Generate "Token"
+                const token = btoa(JSON.stringify({ twitchId, exp: now + (7 * 24 * 60 * 60 * 1000) }));
+
+                // Inform Client
+                this.room.send({
+                    type: 'link_success',
+                    targetId: websimClientId,
+                    token: token,
+                    playerData: player
+                });
+
+                delete this.pendingLinks[code];
+                console.log(`Linked ${username} to websim client ${websimClientId}`);
+            }
+        }
+    }
+
+    setupHostListeners() {
+        this.room.onmessage = async (event) => {
+            const data = event.data;
+            const senderId = data.clientId; // WebSim client ID
+
+            if (data.type === 'request_link_code') {
+                // Generate 4 digit code
+                const code = Math.floor(1000 + Math.random() * 9000).toString();
+                this.pendingLinks[code] = senderId;
+
+                this.room.send({
+                    type: 'link_code_generated',
+                    targetId: senderId,
+                    code: code
+                });
+            } else if (data.type === 'sync_request') {
+                // Verify token
+                const player = await this.validateToken(data.token);
+                if (player) {
+                    // Update link if changed
+                    if (player.linkedWebsimId !== senderId) {
+                        player.linkedWebsimId = senderId;
+                        await savePlayer(player.twitchId, player);
+                    }
+
+                    this.room.send({
+                        type: 'sync_data',
+                        targetId: senderId,
+                        playerData: player
+                    });
+                }
+            } else if (data.type === 'start_task') {
+                const player = await this.validateToken(data.token);
+                if (player) {
+                    // Check if they have energy
+                    if (player.energy.length > 0) {
+                        // Consume oldest energy
+                        player.energy.shift(); 
+
+                        // Set Task
+                        player.activeTask = {
+                            taskId: data.taskId,
+                            startTime: Date.now(),
+                            duration: data.duration
+                        };
+
+                        await savePlayer(player.twitchId, player);
+
+                        // Broadcast update
+                        this.room.send({
+                            type: 'state_update',
+                            targetId: senderId,
+                            playerData: player
+                        });
+                    }
+                }
+            } else if (data.type === 'stop_task') {
+                const player = await this.validateToken(data.token);
+                if (player) {
+                    player.activeTask = null;
+                    await savePlayer(player.twitchId, player);
+                    this.room.send({
+                        type: 'state_update',
+                        targetId: senderId,
+                        playerData: player
+                    });
+                }
+            }
+        };
+    }
+
+    async validateToken(token) {
+        try {
+            const decoded = JSON.parse(atob(token));
+            if (decoded.exp < Date.now()) return null;
+            return await getPlayer(decoded.twitchId);
+        } catch (e) {
+            return null;
+        }
+    }
+
+    // --- CLIENT LOGIC ---
+
+    setupClientListeners() {
+        this.room.onmessage = (event) => {
+            const data = event.data;
+
+            // Filter messages meant for me
+            if (data.targetId && data.targetId !== this.room.clientId) return;
+
+            switch (data.type) {
+                case 'link_code_generated':
+                    if (this.onLinkCode) this.onLinkCode(data.code);
+                    break;
+                case 'link_success':
+                    localStorage.setItem('sq_token', data.token);
+                    if (this.onLinkSuccess) this.onLinkSuccess(data.playerData);
+                    break;
+                case 'sync_data':
+                case 'state_update':
+                case 'energy_update':
+                    if (data.energy) {
+                        // partial update handling if needed
+                    }
+                    if (data.playerData && this.onStateUpdate) {
+                        this.onStateUpdate(data.playerData);
+                    }
+                    break;
+            }
+        };
+    }
+
+    requestLinkCode() {
+        this.room.send({ type: 'request_link_code' });
+    }
+
+    syncWithToken(token) {
+        this.room.send({ type: 'sync_request', token });
+    }
+
+    startTask(taskId, duration) {
+        const token = localStorage.getItem('sq_token'); 
+        this.room.send({ 
+            type: 'start_task', 
+            taskId, 
+            duration,
+            token: token 
+        });
+    }
+
+    stopTask() {
+        this.room.send({ 
+            type: 'stop_task', 
+            token: localStorage.getItem('sq_token') 
+        });
+    }
+}

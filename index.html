@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream Quest Idle</title>
+    <link rel="stylesheet" href="styles.css">
+    <script type="importmap">
+        {
+            "imports": {
+                "pako": "https://esm.sh/pako",
+                "idb": "https://esm.sh/idb",
+                "tmi.js": "/tmi.js"
+            }
+        }
+    </script>
+    <script src="/tmi.js"></script> <!-- Fallback load for global scope if needed by library quirk -->
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header>
+            <div class="header-left">
+                <img src="logo.png" alt="Stream Quest" class="logo">
+            </div>
+            
+            <div class="header-center" id="active-task-container" style="display: none;">
+                <div class="task-info">
+                    <span id="task-label">Chopping Oak</span>
+                    <div class="progress-wrapper">
+                        <img id="task-icon" src="woodcutting_icon.png" alt="Task">
+                        <div class="progress-bar-bg">
+                            <div id="task-progress" class="progress-bar-fill"></div>
+                        </div>
+                        <button id="stop-btn">STOP</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="header-right">
+                <div class="energy-display" id="energy-display">
+                    <img src="energy_icon.png" alt="Energy">
+                    <span id="energy-count">0/12</span>
+                </div>
+                <div class="user-info">
+                    <img id="user-avatar" src="" alt="">
+                    <span id="username">Guest</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Grid -->
+        <main>
+            <!-- Sidebar Skills -->
+            <aside class="skills-sidebar">
+                <h2>Skills</h2>
+                <div id="skills-list">
+                    <!-- Populated by JS -->
+                </div>
+            </aside>
+
+            <!-- Content Area -->
+            <section class="content-area">
+                
+                <!-- Login/Link Overlay (Initial View) -->
+                <div id="auth-overlay" class="overlay">
+                    <div class="card auth-card">
+                        <h2>Connect Account</h2>
+                        <p>Link your Twitch account to start collecting energy and resources.</p>
+                        
+                        <div id="host-controls" style="display:none; border: 1px solid #444; padding: 10px; margin-bottom: 10px;">
+                            <h3>Host Control Panel</h3>
+                            <input type="text" id="twitch-channel-input" placeholder="Enter Twitch Channel Name">
+                            <button id="connect-twitch-btn">Connect TMI</button>
+                            <div id="tmi-status">Status: Disconnected</div>
+                        </div>
+
+                        <div id="client-controls">
+                            <button id="request-link-btn" class="primary-btn">Link Account</button>
+                            <div id="link-instructions" style="display:none;">
+                                <p>Type this command in the Twitch Chat:</p>
+                                <div class="code-box">!link <span id="link-code">...</span></div>
+                                <p>Waiting for validation...</p>
+                            </div>
+                        </div>
+                        
+                        <p id="auth-status"></p>
+                    </div>
+                </div>
+
+                <!-- Skill Details (Hidden until logged in/clicked) -->
+                <div id="skill-details" style="display:none;">
+                    <div class="skill-header">
+                        <img id="detail-icon" src="" alt="">
+                        <div>
+                            <h1 id="detail-name">Skill Name</h1>
+                            <p id="detail-desc">Description...</p>
+                        </div>
+                    </div>
+                    
+                    <div class="task-grid" id="task-grid">
+                        <!-- Tasks populated here -->
+                    </div>
+                </div>
+
+            </section>
+        </main>
+    </div>
+
+    <script type="module" src="src/main.js"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
