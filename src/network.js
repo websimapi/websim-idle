@@ -69,13 +69,6 @@ export class NetworkManager {
         localStorage.setItem('sq_host_channel', channelName);
         appendHostLog(`Connecting to Twitch channel "${channelName}"...`);
 
-        // After switching channel context, attempt to auto-sync host's linked account via stored token
-        const storedToken = localStorage.getItem('sq_token');
-        if (storedToken) {
-            appendHostLog(`Found stored JWT token for host; sending sync_request for channel "${channelName}".`);
-            this.syncWithToken(storedToken);
-        }
-
         if (this.tmiClient) this.tmiClient.disconnect();
 
         // tmi is global from the script tag fallback if import fails, or import map
@@ -200,28 +193,29 @@ export class NetworkManager {
             // Ignore directed messages not meant for this host client
             if (data.targetId && data.targetId !== this.room.clientId) return;
 
-            // Allow host (who may also be a linked client) to react to token invalidation
-            if (data.type === 'token_invalid') {
-                localStorage.removeItem('sq_token');
-                if (this.onTokenInvalid) this.onTokenInvalid();
-                appendHostLog(`Host received token_invalid for its own client session.`);
-                return;
-            }
+            // Host handles both host-specific and client-style messages
 
-            // Host should also be able to receive link codes and player state
             if (data.type === 'link_code_generated') {
                 appendHostLog(`Generated link code "${data.code}" for WebSim client ${senderId}.`);
                 if (this.onLinkCode) this.onLinkCode(data.code);
                 return;
             } else if (data.type === 'link_success') {
-                // Host does not need to store client tokens; just log
+                // Store token locally (host can also be a linked client)
+                if (data.token) {
+                    localStorage.setItem('sq_token', data.token);
+                }
                 appendHostLog(`Host received link_success for a client.`);
-                if (this.onLinkSuccess) this.onLinkSuccess(data.playerData);
+                if (this.onLinkSuccess && data.playerData) this.onLinkSuccess(data.playerData);
                 return;
             } else if (data.type === 'sync_data' || data.type === 'state_update' || data.type === 'energy_update') {
                 if (data.playerData && this.onStateUpdate) {
                     this.onStateUpdate(data.playerData);
                 }
+                return;
+            } else if (data.type === 'token_invalid') {
+                // Host's local client token was rejected/expired
+                localStorage.removeItem('sq_token');
+                if (this.onTokenInvalid) this.onTokenInvalid();
                 return;
             }
 

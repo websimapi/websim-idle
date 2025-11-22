@@ -27,9 +27,10 @@ async function init() {
         // Host menu and auth overlay visibility handled in UIManager
     }
 
-    // Attempt auto-sync with stored token for both host and clients
+    // Attempt auto-sync with stored token
     const token = localStorage.getItem('sq_token');
-    if (token) {
+    if (token && !isHost) {
+        // Clients auto-sync immediately on load
         network.syncWithToken(token);
     }
 }
