@@ -38,8 +38,8 @@ async function init() {
             if (connected) {
                 const statusEl = document.getElementById('tmi-status');
                 if (statusEl) {
-                    statusEl.innerText = "Status: Connected to " + savedChannel;
-                    statusEl.style.color = "#4ade80";
+                    statusEl.innerText = "🟢"; // Connected icon
+                    statusEl.title = `Connected to ${savedChannel}`;
                 }
                 // After auto-connect, attempt auto-sync with stored token
                 const token = localStorage.getItem('sq_token');

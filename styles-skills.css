@@ -1,0 +1,146 @@
+/* Skills sidebar + skill header + tier regions */
+
+.skills-sidebar h2 {
+    margin-bottom: 15px;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+}
+
+/* Skill list items */
+
+.skill-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-bottom: 5px;
+}
+
+.skill-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.skill-item.active {
+    background: rgba(255, 183, 3, 0.1);
+    border: 1px solid var(--primary);
+}
+
+.skill-item img {
+    width: 32px;
+    height: 32px;
+}
+
+/* Skill text + level layout */
+
+.skill-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.skill-name-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.skill-name {
+    font-size: 0.9rem;
+}
+
+.skill-level-label {
+    font-size: 0.75rem;
+    color: var(--primary);
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+/* XP bar under each skill */
+
+.skill-xp-bar {
+    position: relative;
+    width: 100%;
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+    overflow: hidden;
+}
+
+.skill-xp-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--primary));
+    transition: width 0.25s ease-out;
+}
+
+/* Skill detail header */
+
+.skill-header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 30px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 20px;
+}
+
+.skill-header img {
+    width: 64px;
+    height: 64px;
+}
+
+/* Tier tabs + scene (woodcutting / scavenging) */
+
+.tier-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.tier-tab {
+    flex: 1;
+    padding: 6px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: rgba(0, 0, 0, 0.4);
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    text-align: center;
+    cursor: pointer;
+}
+
+.tier-tab.active {
+    background: rgba(255, 183, 3, 0.15);
+    border-color: var(--primary);
+    color: var(--primary);
+    font-weight: 600;
+}
+
+.tier-scene {
+    width: 100%;
+    height: 320px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: #050509;
+    margin-bottom: 14px;
+}
+
+.tier-scene img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    image-rendering: pixelated;
+}
+
+/* Tombstone: skills UI moved */
+/* // removed skill list, skill header, tier tabs, and scene styles from styles.css into styles-skills.css */

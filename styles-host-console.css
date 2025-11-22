@@ -1,0 +1,77 @@
+/* Host user dropdown trigger inside console */
+
+.host-user-menu {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.host-user-btn {
+    background: #000;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 6px 12px;
+    color: var(--text-main);
+    font-size: 0.85rem;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.host-user-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* Drop-up behavior for host user menu inside the console */
+
+.host-user-menu .dropdown-panel {
+    top: auto;
+    bottom: 110%;
+    right: 0;
+    z-index: 300;
+}
+
+/* Host console container */
+
+.host-console {
+    background: #050509;
+    border-top: 1px solid var(--border);
+    height: 130px;
+    padding: 6px 10px;
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: var(--text-main);
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 130px;
+    overflow: visible;
+
+    /* Keep console pinned to bottom of the central content column */
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.host-console-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: bold;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+}
+
+.host-data-controls {
+    display: flex;
+    gap: 6px;
+}
+
+/* Scrollable log inside fixed-height console */
+
+#host-console-log {
+    flex: 1;
+    overflow-y: auto;
+}
+
+/* Tombstone: host console moved */
+/* // removed host-console and dropdown styles from styles.css into styles-host-console.css */

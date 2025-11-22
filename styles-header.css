@@ -1,0 +1,231 @@
+/* Header and top bar */
+
+header {
+    height: 80px;
+    background-color: var(--bg-panel);
+    border-bottom: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+}
+
+.logo {
+    height: 60px;
+}
+
+.header-center {
+    flex-grow: 1;
+    display: flex;
+    justify-content: center;
+}
+
+/* Active task header in the middle */
+
+.task-info {
+    background: rgba(0,0,0,0.3);
+    padding: 10px;
+    border-radius: 8px;
+    min-width: 300px;
+}
+
+#task-label {
+    display: block;
+    font-size: 0.9rem;
+    margin-bottom: 5px;
+    color: var(--primary);
+    font-weight: bold;
+}
+
+.progress-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#task-icon {
+    width: 32px;
+    height: 32px;
+}
+
+.progress-bar-bg {
+    flex-grow: 1;
+    height: 12px;
+    background: #333;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--accent);
+    transition: width 0.1s linear;
+}
+
+#stop-btn {
+    background: var(--danger);
+    border: none;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+/* Header right side: energy + user info + (host) twitch controls */
+
+.header-right {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+/* Host Twitch channel bar in header/console */
+
+.host-top-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.host-top-bar input {
+    background: #000;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 8px;
+    color: var(--text-main);
+    font-size: 0.85rem;
+    width: 140px;
+}
+
+.host-top-bar button {
+    background: var(--accent);
+    border: none;
+    color: #fff;
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.host-top-bar button:hover {
+    filter: brightness(1.1);
+}
+
+/* Status icon (red/green unicode) */
+
+.host-top-bar #tmi-status {
+    font-size: 1.2rem;
+    line-height: 1;
+    color: var(--text-dim);
+    display: inline-block;
+    width: 1.2rem;
+    text-align: center;
+}
+
+/* Energy pill */
+
+.energy-display {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #000;
+    padding: 5px 10px;
+    border-radius: 20px;
+    border: 1px solid #333;
+}
+
+.energy-display img {
+    width: 20px;
+    height: 20px;
+}
+
+#energy-count {
+    color: #4ade80;
+    font-weight: bold;
+    font-family: monospace;
+}
+
+/* Energy cell drain bar */
+
+.energy-cell-bar-bg {
+    position: relative;
+    width: 80px;
+    height: 8px;
+    border-radius: 4px;
+    background: #222;
+    overflow: hidden;
+    border: 1px solid #333;
+}
+
+.energy-cell-bar-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #4ade80, #facc15);
+    transition: width 0.2s linear;
+}
+
+/* Draining (active) state */
+
+.energy-cell-bar-bg.draining {
+    border-color: #4ade80;
+    box-shadow: 0 0 6px rgba(74, 222, 128, 0.9);
+    animation: energy-glow 1s infinite alternate;
+}
+
+.energy-cell-bar-fill.draining {
+    animation: none;
+}
+
+/* Idle state */
+
+.energy-cell-bar-bg.idle {
+    border-color: #3b82f6;
+    box-shadow: 0 0 6px rgba(59, 130, 246, 0.9);
+    animation: none;
+}
+
+.energy-cell-bar-fill.idle {
+    animation: none;
+    background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+}
+
+@keyframes energy-glow {
+    from {
+        box-shadow: 0 0 4px rgba(74, 222, 128, 0.5);
+        filter: brightness(1);
+    }
+    to {
+        box-shadow: 0 0 10px rgba(250, 204, 21, 0.9);
+        filter: brightness(1.2);
+    }
+}
+
+/* User info blob */
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+    cursor: pointer;
+}
+
+#user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid var(--primary);
+}
+
+/* Client user dropdown positioning */
+
+.client-user-dropdown {
+    top: 110%;
+    right: 0;
+}

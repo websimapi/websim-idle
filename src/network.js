@@ -77,6 +77,13 @@ export class NetworkManager {
         }).catch(err => {
             console.error(err);
             appendHostLog(`Error connecting to Twitch: ${err?.message || err}`);
+            
+            // If connection fails, ensure the UI reflects disconnected status
+            const statusEl = document.getElementById('tmi-status');
+            if (statusEl) {
+                 statusEl.innerText = '🔴';
+                 statusEl.title = 'Disconnected';
+            }
         });
 
         this.tmiClient.on('message', (channel, tags, message, self) => {

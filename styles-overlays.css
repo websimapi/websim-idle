@@ -1,0 +1,109 @@
+/* Generic overlay (auth + offline popup container) */
+
+.overlay {
+    position: absolute;
+    top: 0; 
+    left: 0; 
+    right: 0; 
+    bottom: 0;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+}
+
+/* Auth card */
+
+.auth-card {
+    background: var(--bg-panel);
+    padding: 40px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    text-align: center;
+    max-width: 400px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.code-box {
+    background: #000;
+    font-family: monospace;
+    font-size: 2rem;
+    padding: 20px;
+    margin: 20px 0;
+    border: 2px dashed var(--primary);
+    color: var(--primary);
+    letter-spacing: 5px;
+}
+
+/* Offline catchup card */
+
+.offline-card {
+    background: var(--bg-panel);
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    width: 340px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+}
+
+.offline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.offline-header h3 {
+    color: var(--primary);
+    font-size: 1.2rem;
+}
+
+.close-x-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 1.5rem;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.close-x-btn:hover {
+    color: var(--text-main);
+}
+
+.offline-subtitle {
+    font-size: 0.9rem;
+    color: var(--text-main);
+}
+
+.offline-skill-info {
+    font-size: 0.85rem;
+    color: var(--accent);
+    background: rgba(42, 157, 143, 0.1);
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(42, 157, 143, 0.3);
+    text-align: center;
+}
+
+#offline-loot-grid {
+    max-height: 200px;
+    overflow-y: auto;
+    background: rgba(0,0,0,0.2);
+    padding: 10px;
+    border-radius: 8px;
+    min-height: 80px;
+}
+
+.offline-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 5px;
+}
+
+/* Tombstone: overlay/auth/offline moved */
+/* // removed overlay, auth overlay, and offline popup styles from styles.css into styles-overlays.css */

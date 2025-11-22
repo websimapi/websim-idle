@@ -7,8 +7,12 @@ export function initListeners(uiManager) {
             const channel = document.getElementById('twitch-channel-input').value;
             if (channel) {
                 uiManager.network.connectTwitch(channel);
-                document.getElementById('tmi-status').innerText = 'Status: Connected to ' + channel;
-                document.getElementById('tmi-status').style.color = '#4ade80';
+                
+                const statusEl = document.getElementById('tmi-status');
+                if (statusEl) {
+                    statusEl.innerText = '🟢';
+                    statusEl.title = `Connected to ${channel}`;
+                }
 
                 // After the host connects to a Twitch channel, attempt auto-sync
                 const token = localStorage.getItem('sq_token');

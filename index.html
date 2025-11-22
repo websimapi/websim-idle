@@ -116,6 +116,42 @@
                     </div>
                 </div>
 
+                <!-- Host Console (Host only, now inside content area) -->
+                <div id="host-console-container" class="host-console" style="display:none;">
+                    <div class="host-console-header">
+                        <span>Host Console</span>
+                        <!-- Moved Twitch channel controls here, to the right of the label -->
+                        <div id="host-controls" class="host-top-bar" style="display:none;">
+                            <input type="text" id="twitch-channel-input" placeholder="Twitch channel">
+                            <button id="connect-twitch-btn">Connect</button>
+                            <span id="tmi-status" title="Disconnected">🔴</span>
+                        </div>
+                        <div class="host-data-controls">
+                            <!-- Host user dropdown (only shown for creator/host) -->
+                            <div class="host-user-menu" id="host-user-menu" style="display:none;">
+                                <button id="host-user-btn" class="host-user-btn">
+                                    Users ▾
+                                </button>
+                                <div id="host-user-dropdown" class="dropdown-panel" style="display:none;">
+                                    <div class="dropdown-section">
+                                        <div class="dropdown-section-title">Realtime Users</div>
+                                        <ul id="realtime-users-list" class="dropdown-list"></ul>
+                                    </div>
+                                    <div class="dropdown-section">
+                                        <div class="dropdown-section-title">Twitch Users</div>
+                                        <ul id="twitch-users-list" class="dropdown-list"></ul>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button id="export-data-btn" class="small-btn">Export JSON</button>
+                            <button id="import-data-btn" class="small-btn">Import JSON</button>
+                            <input type="file" id="import-data-input" accept="application/json" style="display:none;">
+                        </div>
+                    </div>
+                    <div id="host-console-log" class="host-console-log"></div>
+                </div>
+
             </section>
 
             <!-- Inventory Sidebar -->
@@ -189,17 +225,17 @@
         </div>
 
         <!-- Host Console (Host only) -->
+        <!-- Removed global bottom-wide host console; now inside content area -->
+        <!--
         <div id="host-console-container" class="host-console" style="display:none;">
             <div class="host-console-header">
                 <span>Host Console</span>
-                <!-- Moved Twitch channel controls here, to the right of the label -->
                 <div id="host-controls" class="host-top-bar" style="display:none;">
                     <input type="text" id="twitch-channel-input" placeholder="Twitch channel">
                     <button id="connect-twitch-btn">Connect</button>
                     <span id="tmi-status">Status: Disconnected</span>
                 </div>
                 <div class="host-data-controls">
-                    <!-- Host user dropdown (only shown for creator/host) -->
                     <div class="host-user-menu" id="host-user-menu" style="display:none;">
                         <button id="host-user-btn" class="host-user-btn">
                             Users ▾
@@ -223,6 +259,7 @@
             </div>
             <div id="host-console-log" class="host-console-log"></div>
         </div>
+        -->
     </div>
 
     <script type="module" src="src/main.js"></script>

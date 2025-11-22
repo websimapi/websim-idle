@@ -1,0 +1,191 @@
+:root {
+    --bg-dark: #121212;
+    --bg-panel: #1e1e24;
+    --primary: #ffb703;
+    --accent: #2a9d8f;
+    --danger: #e63946;
+    --text-main: #e0e0e0;
+    --text-dim: #a0a0a0;
+    --border: #333;
+}
+
+/* Global reset */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+}
+
+body {
+    background-color: var(--bg-dark);
+    color: var(--text-main);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    height: 100vh;
+    overflow: hidden;
+}
+
+#app {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+/* Generic buttons */
+.primary-btn {
+    background: var(--primary);
+    color: #000;
+    border: none;
+    padding: 12px 24px;
+    font-size: 1.1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    margin-top: 20px;
+}
+
+.primary-btn:hover {
+    filter: brightness(1.1);
+}
+
+.small-btn {
+    background: var(--accent);
+    border: none;
+    color: #fff;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 0.7rem;
+    cursor: pointer;
+}
+
+.small-btn:hover {
+    filter: brightness(1.1);
+}
+
+.danger-btn {
+    background: var(--danger);
+}
+
+.small-primary-btn {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+}
+
+/* Text button */
+.text-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.text-btn:hover {
+    color: var(--danger);
+}
+
+/* Generic dropdown panel container (positioning refined in host-console / header) */
+.dropdown-panel {
+    position: absolute;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    min-width: 220px;
+    max-height: 60vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    z-index: 200;
+}
+
+.dropdown-section {
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+}
+
+.dropdown-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.dropdown-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    margin-bottom: 4px;
+}
+
+.dropdown-section-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+}
+
+.dropdown-list {
+    list-style: none;
+    padding-left: 0;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.dropdown-list li {
+    font-size: 0.8rem;
+    padding: 2px 0;
+    display: flex;
+    justify-content: space-between;
+    gap: 4px;
+}
+
+/* Names/meta text within dropdowns */
+.dropdown-list .user-name {
+    color: var(--text-main);
+}
+
+.dropdown-list .user-meta {
+    color: var(--text-dim);
+    font-size: 0.7rem;
+}
+
+/* Clickable list items */
+.dropdown-list li.clickable {
+    cursor: pointer;
+}
+
+.dropdown-list li.clickable:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* Unlinked realtime users (no profile) */
+.dropdown-list li.unlinked-no-profile .user-name {
+    color: var(--text-dim);
+}
+
+.dropdown-list li.unlinked-no-profile {
+    cursor: default;
+}
+
+/* Linked profile highlight */
+.dropdown-list li.linked-profile .user-meta {
+    color: var(--primary);
+}
+
+/* Twitch user items */
+.dropdown-list li.twitch-user-item .user-meta {
+    font-style: italic;
+}
+
+/* Copy status helper (used near link code) */
+.copy-status {
+    display: inline-block;
+    margin-left: 6px;
+    color: #4ade80;
+    font-size: 0.7rem;
+}
+
+/* Tombstone: this file now holds all global/base styles */
+/* // removed base layout and component styles from styles.css into styles-base.css */
