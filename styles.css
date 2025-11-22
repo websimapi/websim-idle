@@ -274,6 +274,12 @@ header {
     right: 0;
 }
 
+/* Small primary button variant for header */
+.small-primary-btn {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+}
+
 /* Main Layout */
 main {
     display: flex;
@@ -351,12 +357,6 @@ main {
 }
 
 .primary-btn:hover { filter: brightness(1.1); }
-
-.small-global-link {
-    padding: 6px 12px;
-    font-size: 0.85rem;
-    margin-top: 0;
-}
 
 .code-box {
     background: #000;

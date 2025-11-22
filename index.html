@@ -52,18 +52,6 @@
                     </button>
                     <div id="host-user-dropdown" class="dropdown-panel" style="display:none;">
                         <div class="dropdown-section">
-                            <div class="dropdown-section-header">
-                                <span>Host Account</span>
-                            </div>
-                            <div class="host-link-info">
-                                <span id="host-link-code-small"></span>
-                                <span id="host-link-copy-status" class="copy-status"></span>
-                            </div>
-                            <button id="host-delink-btn" class="small-btn danger-btn" style="margin-top:4px; display:none;">
-                                De-Link
-                            </button>
-                        </div>
-                        <div class="dropdown-section">
                             <div class="dropdown-section-title">Realtime Users</div>
                             <ul id="realtime-users-list" class="dropdown-list"></ul>
                         </div>
@@ -78,10 +66,8 @@
                     <img src="energy_icon.png" alt="Energy">
                     <span id="energy-count">0/12</span>
                 </div>
-                <button id="global-link-btn" class="primary-btn small-global-link">
-                    Link Account
-                </button>
                 <div class="user-info" id="user-info">
+                    <button id="link-account-btn" class="primary-btn small-primary-btn">Link Twitch Account</button>
                     <img id="user-avatar" src="" alt="">
                     <span id="username">Guest</span>
                     <div id="client-user-dropdown" class="dropdown-panel client-user-dropdown" style="display:none;">
@@ -113,20 +99,17 @@
             <!-- Content Area -->
             <section class="content-area">
                 
-                <!-- Login/Link Overlay (Initial View) -->
-                <div id="auth-overlay" class="overlay">
+                <!-- Login/Link Overlay (Triggered by top-right button) -->
+                <div id="auth-overlay" class="overlay" style="display:none;">
                     <div class="card auth-card">
                         <h2>Connect Account</h2>
                         <p>Link your Twitch account to start collecting energy and resources.</p>
-                        
-                        <div id="client-controls">
-                            <div id="link-instructions" style="display:none;">
-                                <p>Type this command in the Twitch Chat:</p>
-                                <div class="code-box">!link <span id="link-code">...</span></div>
-                                <p>Waiting for validation...</p>
-                            </div>
+                        <div id="link-instructions">
+                            <p>Type this command in the Twitch Chat:</p>
+                            <div class="code-box">!link <span id="link-code">...</span></div>
+                            <p id="global-link-copy-status" class="copy-status"></p>
+                            <p>Waiting for validation...</p>
                         </div>
-                        
                         <p id="auth-status"></p>
                     </div>
                 </div>

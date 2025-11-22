@@ -27,29 +27,10 @@ async function init() {
         // Host menu and auth overlay visibility handled in UIManager
     }
 
-    // Helper to check local token expiry before attempting auto-sync
-    function isLocalTokenValid(token) {
-        if (!token) return false;
-        try {
-            const decoded = JSON.parse(atob(token));
-            if (!decoded.exp) return false;
-            return decoded.exp > Date.now();
-        } catch (e) {
-            return false;
-        }
-    }
-
     // Attempt auto-sync with stored token for both host and clients
     const token = localStorage.getItem('sq_token');
-    if (isLocalTokenValid(token)) {
+    if (token) {
         network.syncWithToken(token);
-    } else if (token) {
-        // Clean up expired/invalid token so UI shows as unlinked
-        localStorage.removeItem('sq_token');
-        // Ensure UI reflects updated auth state
-        if (ui && typeof ui.updateAuthVisualState === 'function') {
-            ui.updateAuthVisualState();
-        }
     }
 }
 
