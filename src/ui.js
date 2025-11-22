@@ -1,11 +1,16 @@
 import { SKILLS } from './skills.js';
+import { replaceAllPlayers } from './db.js';
+
+const ONE_HOUR_MS = 60 * 60 * 1000; // matches server-side energy duration
 
 export class UIManager {
     constructor(networkManager, isHost = false) {
         this.network = networkManager;
         this.state = null;
         this.activeTaskInterval = null;
+        this.energyBarInterval = null;
         this.isHost = isHost;
+        this.currentEnergyStartTime = null; // track current active energy cell
 
         // Elements
         this.skillsList = document.getElementById('skills-list');
@@ -13,6 +18,7 @@ export class UIManager {
         this.skillDetails = document.getElementById('skill-details');
         this.activeTaskContainer = document.getElementById('active-task-container');
         this.energyCount = document.getElementById('energy-count');
+        this.energyBarFill = document.getElementById('energy-cell-bar');
         this.usernameDisplay = document.getElementById('username');
         this.userAvatar = document.getElementById('user-avatar');
         this.linkAccountBtn = document.getElementById('link-account-btn');
@@ -23,6 +29,11 @@ export class UIManager {
         this.hostUserDropdown = document.getElementById('host-user-dropdown');
         this.realtimeUsersList = document.getElementById('realtime-users-list');
         this.twitchUsersList = document.getElementById('twitch-users-list');
+
+        // Host data export/import controls
+        this.exportDataBtn = document.getElementById('export-data-btn');
+        this.importDataBtn = document.getElementById('import-data-btn');
+        this.importDataInput = document.getElementById('import-data-input');
 
         // Client user dropdown elements (also used by host now)
         this.userInfoEl = document.getElementById('user-info');
@@ -46,6 +57,18 @@ export class UIManager {
         this.initListeners();
         this.renderSkillsList();
         this.updateAuthUI();
+    }
+
+    // Helper: compute available energy from player state
+    computeEnergyCount(playerData) {
+        if (!playerData) return 0;
+        const now = Date.now();
+        let active = 0;
+        if (playerData.activeEnergy && (now - (playerData.activeEnergy.startTime || 0)) < ONE_HOUR_MS) {
+            active = 1;
+        }
+        const stored = Array.isArray(playerData.energy) ? playerData.energy.length : 0;
+        return stored + active;
     }
 
     initListeners() {
@@ -129,6 +152,72 @@ export class UIManager {
                     this.clientUserDropdown.style.display = 'none';
                 }
                 this.updateAuthUI();
+            });
+        }
+
+        // Host export/import data controls
+        if (this.isHost && this.exportDataBtn) {
+            this.exportDataBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                try {
+                    const players = await this.network.exportChannelData();
+                    const blob = new Blob([JSON.stringify(players, null, 2)], {
+                        type: 'application/json'
+                    });
+
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    const channel = localStorage.getItem('sq_host_channel') || 'channel';
+                    const date = new Date().toISOString().replace(/[:.]/g, '-');
+                    a.href = url;
+                    a.download = `streamquest_${channel}_players_${date}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                } catch (err) {
+                    console.error('Export failed', err);
+                }
+            });
+        }
+
+        if (this.isHost && this.importDataBtn && this.importDataInput) {
+            this.importDataBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.importDataInput.click();
+            });
+
+            this.importDataInput.addEventListener('change', async (e) => {
+                e.stopPropagation();
+                const file = e.target.files && e.target.files[0];
+                if (!file) return;
+
+                const confirmOverride = window.confirm(
+                    'Importing will OVERWRITE all existing player data for this channel. Continue?'
+                );
+                if (!confirmOverride) {
+                    this.importDataInput.value = '';
+                    return;
+                }
+
+                try {
+                    const text = await file.text();
+                    const parsed = JSON.parse(text);
+
+                    if (!Array.isArray(parsed)) {
+                        alert('Invalid import file: expected an array of players.');
+                        this.importDataInput.value = '';
+                        return;
+                    }
+
+                    await this.network.importChannelData(parsed, replaceAllPlayers);
+                    alert('Import complete. Player data has been replaced for this channel.');
+                } catch (err) {
+                    console.error('Import failed', err);
+                    alert('Import failed. Check the console for details.');
+                } finally {
+                    this.importDataInput.value = '';
+                }
             });
         }
 
@@ -242,7 +331,7 @@ export class UIManager {
             const card = document.createElement('div');
             card.className = 'task-card';
 
-            const hasEnergy = this.state && this.state.energy.length > 0;
+            const hasEnergy = this.state && this.computeEnergyCount(this.state) > 0;
             const isBusy = this.state && this.state.activeTask;
 
             card.innerHTML = `
@@ -269,20 +358,48 @@ export class UIManager {
     }
 
     updateState(playerData) {
+        const prevActiveTask = this.state ? this.state.activeTask : null;
         this.state = playerData;
 
         // Update User Info
-        if (this.usernameDisplay) {
+        if (this.usernameDisplay && playerData.username) {
             this.usernameDisplay.innerText = playerData.username;
         }
 
-        // Update Energy
-        this.energyCount.innerText = `${playerData.energy.length}/12`;
+        // Update Energy (stored + active cell)
+        const energyCount = this.computeEnergyCount(playerData);
+        this.energyCount.innerText = `${energyCount}/12`;
+
+        // Update energy cell drain bar WITHOUT restarting it unnecessarily
+        const newEnergyStartTime = playerData.activeEnergy?.startTime || null;
+        if (newEnergyStartTime && newEnergyStartTime !== this.currentEnergyStartTime) {
+            this.currentEnergyStartTime = newEnergyStartTime;
+            this.startEnergyBar(playerData.activeEnergy);
+        } else if (!newEnergyStartTime && this.currentEnergyStartTime !== null) {
+            this.currentEnergyStartTime = null;
+            this.stopEnergyBar();
+        }
+
+        // Determine if we have an active energy cell (used for auto-restart + UI behavior)
+        const now = Date.now();
+        const hasActiveEnergy =
+            playerData.activeEnergy &&
+            (now - (playerData.activeEnergy.startTime || 0)) < ONE_HOUR_MS;
 
         // Update Active Task UI
         if (playerData.activeTask) {
             this.activeTaskContainer.style.display = 'flex';
-            this.startProgressLoop(playerData.activeTask);
+
+            // Only restart the progress loop if the task actually changed
+            const taskChanged =
+                !prevActiveTask ||
+                prevActiveTask.taskId !== playerData.activeTask.taskId ||
+                prevActiveTask.startTime !== playerData.activeTask.startTime ||
+                prevActiveTask.duration !== playerData.activeTask.duration;
+
+            if (taskChanged) {
+                this.startProgressLoop(playerData.activeTask);
+            }
 
             // Update Buttons in current view
             if(this.skillDetails.style.display !== 'none') {
@@ -300,13 +417,41 @@ export class UIManager {
             }
 
         } else {
-            this.activeTaskContainer.style.display = 'none';
-            this.stopProgressLoop();
+            // If we just finished a task but still have active energy and are about to auto-restart,
+            // keep the task header visible and don't reset the bar to avoid flicker.
+            const shouldKeepVisible =
+                hasActiveEnergy && prevActiveTask && !playerData.activeTask;
+
+            if (!shouldKeepVisible) {
+                this.activeTaskContainer.style.display = 'none';
+                this.stopProgressLoop();
+            }
 
              // Refresh grid to re-enable buttons
              const currentTitle = document.getElementById('detail-name').innerText;
              const skillOfCurrentView = Object.values(SKILLS).find(s => s.name === currentTitle);
              if(skillOfCurrentView) this.showSkillDetails(skillOfCurrentView);
+        }
+
+        // Auto-restart last task while energy cell is active
+        if (hasActiveEnergy && prevActiveTask && !playerData.activeTask) {
+            const taskId = prevActiveTask.taskId;
+            let duration = prevActiveTask.duration;
+
+            if (!duration) {
+                // Fallback: look up duration from SKILLS if missing on legacy data
+                for (const skill of Object.values(SKILLS)) {
+                    const t = skill.tasks.find(t => t.id === taskId);
+                    if (t) {
+                        duration = t.duration;
+                        break;
+                    }
+                }
+            }
+
+            if (taskId && duration) {
+                this.network.startTask(taskId, duration);
+            }
         }
     }
 
@@ -332,8 +477,6 @@ export class UIManager {
 
             if (pct >= 100) {
                 pct = 100;
-                // In a real game, we'd auto-complete here, but for now we wait for server or keep it at 100
-                // Since we didn't implement auto-finish in network.js for this prototype, it just loops visibly
             }
 
             fill.style.width = `${pct}%`;
@@ -346,6 +489,32 @@ export class UIManager {
             this.activeTaskInterval = null;
         }
         document.getElementById('task-progress').style.width = '0%';
+    }
+
+    startEnergyBar(activeEnergy) {
+        if (!this.energyBarFill || !activeEnergy || !activeEnergy.startTime) return;
+
+        this.stopEnergyBar();
+
+        this.energyBarInterval = setInterval(() => {
+            const now = Date.now();
+            const elapsed = now - activeEnergy.startTime;
+            // Bar should be full when energy is fresh and drain toward empty as it expires
+            let remainingPct = 100 - ((elapsed / ONE_HOUR_MS) * 100);
+            if (remainingPct < 0) remainingPct = 0;
+            if (remainingPct > 100) remainingPct = 100;
+            this.energyBarFill.style.width = `${remainingPct}%`;
+        }, 500);
+    }
+
+    stopEnergyBar() {
+        if (this.energyBarInterval) {
+            clearInterval(this.energyBarInterval);
+            this.energyBarInterval = null;
+        }
+        if (this.energyBarFill) {
+            this.energyBarFill.style.width = '0%';
+        }
     }
 
     renderRealtimeUsers(peers) {

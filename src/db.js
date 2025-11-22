@@ -1,5 +1,6 @@
 import { openDB } from 'idb';
 import pako from 'pako';
+import { SKILLS } from './skills.js'; // added import for skills definition
 
 let DB_NAME = 'StreamQuestDB';
 const STORE_NAME = 'players';
@@ -66,16 +67,53 @@ export async function getAllPlayers() {
     return players;
 }
 
+export async function clearAllPlayers() {
+    const db = await initDB();
+    await db.clear(STORE_NAME);
+}
+
+export async function replaceAllPlayers(playersArray) {
+    const db = await initDB();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+
+    await store.clear();
+
+    for (const player of playersArray || []) {
+        try {
+            const jsonString = JSON.stringify(player);
+            const compressed = pako.deflate(jsonString);
+            await store.put({ twitchId: player.twitchId, data: compressed });
+        } catch (e) {
+            console.error('Error importing player', player?.twitchId, e);
+        }
+    }
+
+    await tx.done;
+}
+
 export function createNewPlayer(username, twitchId) {
+    // Initialize skills structure:
+    // skills: {
+    //   woodcutting: { tasks: { [taskId]: [timestamp, ...] } },
+    //   scavenging: { tasks: { ... } },
+    //   fishing: { tasks: { ... } }
+    // }
+    const skills = {};
+    Object.keys(SKILLS).forEach(skillId => {
+        skills[skillId] = {
+            tasks: {}
+        };
+    });
+
     return {
         username,
         twitchId,
-        level: 1,
-        xp: 0,
-        energy: [], // Array of timestamps
+        skills,
+        energy: [], // Array of timestamps (stored/unactivated energy)
         lastChatTime: 0,
-        inventory: {},
         activeTask: null, // { taskId, startTime, duration }
+        activeEnergy: null, // { startTime }
         linkedWebsimId: null
     };
 }

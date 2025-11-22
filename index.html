@@ -65,6 +65,9 @@
                 <div class="energy-display" id="energy-display">
                     <img src="energy_icon.png" alt="Energy">
                     <span id="energy-count">0/12</span>
+                    <div class="energy-cell-bar-bg">
+                        <div id="energy-cell-bar" class="energy-cell-bar-fill"></div>
+                    </div>
                 </div>
                 <div class="user-info" id="user-info">
                     <button id="link-account-btn" class="primary-btn small-primary-btn">Link Twitch Account</button>
@@ -136,6 +139,11 @@
         <div id="host-console-container" class="host-console" style="display:none;">
             <div class="host-console-header">
                 <span>Host Console</span>
+                <div class="host-data-controls">
+                    <button id="export-data-btn" class="small-btn">Export JSON</button>
+                    <button id="import-data-btn" class="small-btn">Import JSON</button>
+                    <input type="file" id="import-data-input" accept="application/json" style="display:none;">
+                </div>
             </div>
             <div id="host-console-log" class="host-console-log"></div>
         </div>

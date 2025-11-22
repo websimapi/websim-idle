@@ -259,6 +259,27 @@ header {
 
 #energy-count { color: #4ade80; font-weight: bold; font-family: monospace; }
 
+/* New: visual energy cell drain bar */
+.energy-cell-bar-bg {
+    position: relative;
+    width: 80px;
+    height: 8px;
+    border-radius: 4px;
+    background: #222;
+    overflow: hidden;
+    border: 1px solid #333;
+}
+
+.energy-cell-bar-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #4ade80, #facc15);
+    transition: width 0.2s linear;
+}
+
 .user-info { 
     display: flex; 
     align-items: center; 
@@ -438,14 +459,7 @@ main {
     margin-bottom: 4px;
 }
 
-.host-console-log {
-    flex: 1;
-    overflow-y: auto;
-    padding-right: 4px;
-}
-
-.host-console-log div {
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    overflow: hidden;
+.host-data-controls {
+    display: flex;
+    gap: 6px;
 }

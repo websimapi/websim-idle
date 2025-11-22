@@ -19,6 +19,33 @@ function appendHostLog(message) {
     logEl.scrollTop = logEl.scrollHeight;
 }
 
+const ONE_HOUR_MS = 60 * 60 * 1000;
+
+// Helper to compute available energy cells (stored + active if not expired)
+function getAvailableEnergyCount(player) {
+    if (!player) return 0;
+    const now = Date.now();
+    let active = 0;
+    if (player.activeEnergy && (now - (player.activeEnergy.startTime || 0)) < ONE_HOUR_MS) {
+        active = 1;
+    }
+    const stored = Array.isArray(player.energy) ? player.energy.length : 0;
+    return stored + active;
+}
+
+// Helper to ensure activeEnergy is cleared if expired (returns true if changed)
+async function normalizeActiveEnergy(player) {
+    if (!player || !player.activeEnergy) return false;
+    const now = Date.now();
+    if ((now - (player.activeEnergy.startTime || 0)) >= ONE_HOUR_MS) {
+        appendHostLog(`Active energy expired for ${player.username}.`);
+        player.activeEnergy = null;
+        await savePlayer(player.twitchId, player);
+        return true;
+    }
+    return false;
+}
+
 export class NetworkManager {
     constructor(room, isHost, user) {
         this.room = room;
@@ -26,6 +53,7 @@ export class NetworkManager {
         this.user = user;
         this.tmiClient = null;
         this.pendingLinks = {}; // code -> { websimClientId, createdAt }
+        this.taskCompletionInterval = null; // interval handle for completing tasks
 
         this.onEnergyUpdate = null;
         this.onTaskUpdate = null;
@@ -53,6 +81,9 @@ export class NetworkManager {
             this.setupPresenceWatcher();
             // Initial load of Twitch users for current DB context
             this.refreshPlayerList();
+
+            // Start background loop to complete finished tasks
+            this.startTaskCompletionLoop();
         } else {
             console.log("Initializing Client Logic...");
             this.setupClientListeners();
@@ -131,17 +162,30 @@ export class NetworkManager {
             appendHostLog(`New Twitch user detected: ${username} (${twitchId}).`);
         }
 
+        // Ensure energy structures exist on older records
+        if (!Array.isArray(player.energy)) player.energy = [];
+        if (!player.skills) player.skills = {};
+        if (player.activeEnergy && !player.activeEnergy.startTime) {
+            // legacy safety
+            player.activeEnergy = null;
+        }
+
+        // Clear expired active energy (if any)
+        await normalizeActiveEnergy(player);
+
         // Check energy threshold (5 minutes)
         if (now - player.lastChatTime > 300000) { 
-            if (player.energy.length < 12) {
-                player.energy.push(now); // Add energy cell
-                appendHostLog(`Energy +1 for ${username} (now ${player.energy.length}/12).`);
+            const totalAvailable = getAvailableEnergyCount(player);
+            if (totalAvailable < 12) {
+                player.energy.push(now); // Add stored energy cell
+                appendHostLog(`Stored energy +1 for ${username} (now ${getAvailableEnergyCount(player)}/12).`);
                 // Notify if they are online via WebSim
                 if (player.linkedWebsimId) {
                     this.room.send({
                         type: 'energy_update',
                         targetId: player.linkedWebsimId,
-                        energy: player.energy
+                        energy: player.energy,
+                        activeEnergy: player.activeEnergy
                     });
                 }
             }
@@ -183,6 +227,22 @@ export class NetworkManager {
 
         // Update Twitch user list in dropdown
         this.refreshPlayerList();
+    }
+
+    async exportChannelData() {
+        if (!this.isHost) return [];
+        const players = await getAllPlayers();
+        appendHostLog(`Exported ${players.length} players for current channel.`);
+        return players;
+    }
+
+    async importChannelData(playersArray, replaceAllPlayersFn) {
+        if (!this.isHost) return;
+        if (typeof replaceAllPlayersFn !== 'function') return;
+
+        await replaceAllPlayersFn(playersArray || []);
+        appendHostLog(`Imported ${playersArray?.length || 0} players for current channel (overwrote existing data).`);
+        await this.refreshPlayerList();
     }
 
     setupHostListeners() {
@@ -259,15 +319,43 @@ export class NetworkManager {
             } else if (data.type === 'start_task') {
                 const player = await this.validateToken(data.token);
                 if (player) {
-                    // Check if they have energy
-                    if (player.energy.length > 0) {
-                        // Consume oldest energy
-                        player.energy.shift(); 
+                    // Normalize legacy structures
+                    if (!Array.isArray(player.energy)) player.energy = [];
+                    if (player.activeEnergy && !player.activeEnergy.startTime) {
+                        player.activeEnergy = null;
+                    }
 
-                        // Set Task
+                    // Clear expired active energy if needed
+                    await normalizeActiveEnergy(player);
+
+                    const now = Date.now();
+                    const totalAvailable = getAvailableEnergyCount(player);
+                    if (totalAvailable <= 0) {
+                        appendHostLog(`Task start denied for ${player.username}: no energy (pool empty and no active cell).`);
+                        // Optionally, we could notify the client of denial here
+                    } else {
+                        // If no active energy cell, activate one by consuming stored energy
+                        const hasActiveEnergy =
+                            player.activeEnergy &&
+                            (now - (player.activeEnergy.startTime || 0)) < ONE_HOUR_MS;
+
+                        if (!hasActiveEnergy) {
+                            if (player.energy.length > 0) {
+                                player.energy.shift(); // consume one stored energy
+                                player.activeEnergy = { startTime: now };
+                                appendHostLog(`Energy cell activated for ${player.username} (expires in 1h).`);
+                            } else {
+                                // This should not happen due to totalAvailable > 0, but guard anyway
+                                appendHostLog(`Task start denied for ${player.username}: race condition left no stored energy.`);
+                                await savePlayer(player.twitchId, player);
+                                return;
+                            }
+                        }
+
+                        // Set Task (uses current active energy cell, but does not consume additional charges)
                         player.activeTask = {
                             taskId: data.taskId,
-                            startTime: Date.now(),
+                            startTime: now,
                             duration: data.duration
                         };
 
@@ -280,8 +368,6 @@ export class NetworkManager {
                             targetId: senderId,
                             playerData: player
                         });
-                    } else {
-                        appendHostLog(`Task start denied for ${player.username}: no energy.`);
                     }
                 } else {
                     appendHostLog(`start_task from ${senderId} failed token validation (expired/invalid).`);
@@ -369,6 +455,110 @@ export class NetworkManager {
         } catch (e) {
             return null;
         }
+    }
+
+    // Background loop: check all players for finished tasks and mark them complete
+    startTaskCompletionLoop() {
+        if (!this.isHost || this.taskCompletionInterval) return;
+
+        this.taskCompletionInterval = setInterval(async () => {
+            try {
+                const now = Date.now();
+                const players = await getAllPlayers();
+
+                for (const player of players) {
+                    // Ensure legacy safe structures
+                    if (!Array.isArray(player.energy)) player.energy = [];
+                    if (player.activeEnergy && !player.activeEnergy.startTime) {
+                        player.activeEnergy = null;
+                    }
+
+                    // Handle energy expiry
+                    if (player.activeEnergy) {
+                        const expired = (now - (player.activeEnergy.startTime || 0)) >= ONE_HOUR_MS;
+                        if (expired) {
+                            appendHostLog(`Background: active energy expired for ${player.username}.`);
+                            player.activeEnergy = null;
+
+                            // If the player is still doing a task and has stored energy, auto-activate the next cell
+                            if (player.activeTask && player.energy.length > 0) {
+                                player.energy.shift(); // consume next stored energy
+                                player.activeEnergy = { startTime: now };
+                                appendHostLog(
+                                    `Background: new energy cell auto-activated for ${player.username} (expires in 1h).`
+                                );
+                            }
+                        }
+                    }
+
+                    const active = player.activeTask;
+                    if (!active) {
+                        // Save if we changed only energy state
+                        if (!player.activeEnergy && player.activeTask == null) {
+                            // We may still need to persist energy expiration
+                        }
+                    }
+
+                    const elapsed = active ? now - (active.startTime || 0) : 0;
+                    if (active && elapsed >= (active.duration || 0)) {
+                        // Determine which skill this task belongs to
+                        const taskId = active.taskId;
+                        let skillId = null;
+
+                        for (const [sid, skill] of Object.entries(SKILLS)) {
+                            if (skill.tasks.some(t => t.id === taskId)) {
+                                skillId = sid;
+                                break;
+                            }
+                        }
+
+                        const completedAt = now;
+
+                        if (skillId) {
+                            // Ensure skills/structure exists
+                            if (!player.skills) player.skills = {};
+                            if (!player.skills[skillId]) {
+                                player.skills[skillId] = { tasks: {} };
+                            }
+                            if (!player.skills[skillId].tasks) {
+                                player.skills[skillId].tasks = {};
+                            }
+                            if (!player.skills[skillId].tasks[taskId]) {
+                                player.skills[skillId].tasks[taskId] = [];
+                            }
+
+                            // Append completion timestamp
+                            player.skills[skillId].tasks[taskId].push(completedAt);
+                            appendHostLog(
+                                `Task "${taskId}" completed for ${player.username} at ${new Date(completedAt).toLocaleTimeString()}.`
+                            );
+                        } else {
+                            appendHostLog(
+                                `Task "${taskId}" completed for ${player.username} but no matching skill was found.`
+                            );
+                        }
+
+                        // Clear active task
+                        player.activeTask = null;
+                    }
+
+                    // Persist any changes (task completion or energy expiry)
+                    await savePlayer(player.twitchId, player);
+
+                    // If they are linked, notify their web client so UI updates
+                    if (player.linkedWebsimId) {
+                        this.room.send({
+                            type: 'state_update',
+                            targetId: player.linkedWebsimId,
+                            playerData: player
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error('Error in task completion loop', err);
+                appendHostLog(`Error in task completion loop: ${err?.message || err}`);
+            }
+        }, 1000); // check every second
     }
 
     // --- CLIENT LOGIC ---
