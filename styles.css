@@ -508,7 +508,7 @@ main {
 .inventory-list {
     /* Turn the inventory container into a grid of item slots */
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
     gap: 4px;
     list-style: none;
     padding-left: 0;
@@ -518,8 +518,8 @@ main {
 /* Individual item slot */
 .inventory-item {
     position: relative;
-    width: 56px;
-    height: 56px;
+    width: 64px;
+    height: 64px;
     background: #111319;
     border-radius: 6px;
     border: 1px solid rgba(255, 255, 255, 0.06);
@@ -531,8 +531,8 @@ main {
 
 /* Icon image */
 .inventory-item img {
-    width: 80%;
-    height: 80%;
+    width: 90%;
+    height: 90%;
     object-fit: contain;
     image-rendering: pixelated;
 }
