@@ -1,5 +1,5 @@
 import { SKILLS } from './skills.js';
-import { replaceAllPlayers } from './db.js';
+import { setupHostUI } from './ui-host.js';
 
 const ONE_HOUR_MS = 60 * 60 * 1000; // matches server-side energy duration
 
@@ -47,11 +47,9 @@ export class UIManager {
             channelInput.value = savedChannel;
         }
 
-        // Host UI visibility
+        // Host UI visibility and wiring
         if (this.isHost) {
-            if (this.hostUserMenu) {
-                this.hostUserMenu.style.display = 'flex';
-            }
+            setupHostUI(this);
         }
 
         this.initListeners();
@@ -104,21 +102,7 @@ export class UIManager {
             });
         }
 
-        // Host dropdown interactions
-        if (this.isHost && this.hostUserBtn && this.hostUserDropdown) {
-            this.hostUserBtn.addEventListener('click', () => {
-                const isOpen = this.hostUserDropdown.style.display === 'block';
-                this.hostUserDropdown.style.display = isOpen ? 'none' : 'block';
-            });
-
-            // Close dropdown when clicking outside
-            document.addEventListener('click', (e) => {
-                if (!this.hostUserMenu) return;
-                if (!this.hostUserMenu.contains(e.target)) {
-                    this.hostUserDropdown.style.display = 'none';
-                }
-            });
-        }
+        // removed inline host dropdown/menu wiring (moved to setupHostUI) {}
 
         // User dropdown interactions (both host and clients)
         if (this.userInfoEl && this.clientUserDropdown) {
@@ -155,71 +139,8 @@ export class UIManager {
             });
         }
 
-        // Host export/import data controls
-        if (this.isHost && this.exportDataBtn) {
-            this.exportDataBtn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                try {
-                    const players = await this.network.exportChannelData();
-                    const blob = new Blob([JSON.stringify(players, null, 2)], {
-                        type: 'application/json'
-                    });
-
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    const channel = localStorage.getItem('sq_host_channel') || 'channel';
-                    const date = new Date().toISOString().replace(/[:.]/g, '-');
-                    a.href = url;
-                    a.download = `streamquest_${channel}_players_${date}.json`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                } catch (err) {
-                    console.error('Export failed', err);
-                }
-            });
-        }
-
-        if (this.isHost && this.importDataBtn && this.importDataInput) {
-            this.importDataBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.importDataInput.click();
-            });
-
-            this.importDataInput.addEventListener('change', async (e) => {
-                e.stopPropagation();
-                const file = e.target.files && e.target.files[0];
-                if (!file) return;
-
-                const confirmOverride = window.confirm(
-                    'Importing will OVERWRITE all existing player data for this channel. Continue?'
-                );
-                if (!confirmOverride) {
-                    this.importDataInput.value = '';
-                    return;
-                }
-
-                try {
-                    const text = await file.text();
-                    const parsed = JSON.parse(text);
-
-                    if (!Array.isArray(parsed)) {
-                        alert('Invalid import file: expected an array of players.');
-                        this.importDataInput.value = '';
-                        return;
-                    }
-
-                    await this.network.importChannelData(parsed, replaceAllPlayers);
-                    alert('Import complete. Player data has been replaced for this channel.');
-                } catch (err) {
-                    console.error('Import failed', err);
-                    alert('Import failed. Check the console for details.');
-                } finally {
-                    this.importDataInput.value = '';
-                }
-            });
-        }
+        // Host export/import wiring moved to setupHostUI
+        // removed inline export/import binding (moved to setupHostUI) {}
 
         // Network callbacks
         this.network.onLinkCode = (code) => {
@@ -270,15 +191,8 @@ export class UIManager {
             this.updateAuthUI();
         };
 
-        if (this.isHost) {
-            this.network.onPresenceUpdate = (peers) => {
-                this.renderRealtimeUsers(peers);
-            };
-
-            this.network.onPlayerListUpdate = (players, peers) => {
-                this.renderTwitchUsers(players, peers);
-            };
-        }
+        // Host presence/player list callbacks are now wired in setupHostUI
+        // removed inline network.onPresenceUpdate and onPlayerListUpdate handlers {}
     }
 
     updateAuthUI() {
@@ -515,38 +429,5 @@ export class UIManager {
         if (this.energyBarFill) {
             this.energyBarFill.style.width = '0%';
         }
-    }
-
-    renderRealtimeUsers(peers) {
-        if (!this.realtimeUsersList) return;
-        this.realtimeUsersList.innerHTML = '';
-        peers.forEach(peer => {
-            const li = document.createElement('li');
-            li.textContent = peer.username || peer.id;
-            this.realtimeUsersList.appendChild(li);
-        });
-    }
-
-    renderTwitchUsers(players, peers) {
-        if (!this.twitchUsersList) return;
-        this.twitchUsersList.innerHTML = '';
-        players.forEach(player => {
-            const li = document.createElement('li');
-            const linked = player.linkedWebsimId ? 'linked' : 'unlinked';
-
-            let linkedName = '';
-            if (player.linkedWebsimId && peers && peers[player.linkedWebsimId]) {
-                const peerInfo = peers[player.linkedWebsimId];
-                linkedName = peerInfo.username || player.linkedWebsimId;
-            }
-
-            li.innerHTML = `
-                <span class="user-name">${player.username}</span>
-                <span class="user-meta">
-                    (${linked}${linkedName ? ' → ' + linkedName : ''})
-                </span>
-            `;
-            this.twitchUsersList.appendChild(li);
-        });
     }
 }
