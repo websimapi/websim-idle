@@ -39,11 +39,12 @@
 
             <div class="header-right">
                 <!-- Host Twitch Channel Bar (only shown for creator/host) -->
-                <div id="host-controls" class="host-top-bar" style="display:none;">
+                <!-- Removed from header and moved into host console -->
+                <!-- <div id="host-controls" class="host-top-bar" style="display:none;">
                     <input type="text" id="twitch-channel-input" placeholder="Twitch channel">
                     <button id="connect-twitch-btn">Connect</button>
                     <span id="tmi-status">Status: Disconnected</span>
-                </div>
+                </div> -->
 
                 <div class="energy-display" id="energy-display">
                     <img src="energy_icon.png" alt="Energy">
@@ -191,6 +192,12 @@
         <div id="host-console-container" class="host-console" style="display:none;">
             <div class="host-console-header">
                 <span>Host Console</span>
+                <!-- Moved Twitch channel controls here, to the right of the label -->
+                <div id="host-controls" class="host-top-bar" style="display:none;">
+                    <input type="text" id="twitch-channel-input" placeholder="Twitch channel">
+                    <button id="connect-twitch-btn">Connect</button>
+                    <span id="tmi-status">Status: Disconnected</span>
+                </div>
                 <div class="host-data-controls">
                     <!-- Host user dropdown (only shown for creator/host) -->
                     <div class="host-user-menu" id="host-user-menu" style="display:none;">
