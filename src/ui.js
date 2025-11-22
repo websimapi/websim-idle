@@ -135,6 +135,12 @@ export class UIManager {
         // Also preload fishing regions for smooth tier switching
         preloadFishingScenes();
 
+        // Ensure default PFP is used for all users
+        if (this.userAvatar) {
+            this.userAvatar.src = 'user_default_pfp.png';
+            this.userAvatar.alt = 'Stream Quest Adventurer';
+        }
+
         // Pre-fill host channel if saved
         const savedChannel = localStorage.getItem('sq_host_channel');
         const channelInput = document.getElementById('twitch-channel-input');
