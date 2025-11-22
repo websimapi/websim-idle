@@ -57,8 +57,8 @@ export function showSkillDetails(uiManager, skill) {
 
     // Handle header visibility and content
     const headerEl = skillDetails.querySelector('.skill-header');
-    if (skill.id === 'woodcutting') {
-        // Hide redundant header for woodcutting
+    if (skill.id === 'woodcutting' || skill.id === 'scavenging') {
+        // Hide redundant header for woodcutting and scavenging
         if (headerEl) headerEl.style.display = 'none';
     } else {
         // Show and populate header for non-woodcutting skills
@@ -171,6 +171,135 @@ export function showSkillDetails(uiManager, skill) {
         skillDetails.insertBefore(tabsBar, sceneWrapper);
 
         // Render only tasks for active tier
+        activeTier.tasks.forEach(task => {
+            const card = document.createElement('div');
+            card.className = 'task-card';
+
+            const hasEnergy = state && computeEnergyCount(state) > 0;
+            const isBusy = state && state.activeTask;
+            const isThisActive = isBusy && state.activeTask.taskId === task.id;
+            const requiredLevel = task.level || 1;
+            const hasRequiredLevel = playerLevel >= requiredLevel;
+
+            card.innerHTML = `
+                <h4>${task.name}</h4>
+                <div class="task-meta-row">
+                    <span>${task.duration / 1000}s</span>
+                    <span>${task.xp} XP</span>
+                    <span>Lv ${requiredLevel}</span>
+                </div>
+            `;
+
+            const btn = document.createElement('button');
+            if (isThisActive) {
+                btn.innerText = 'In Progress';
+            } else if (!hasRequiredLevel) {
+                btn.innerText = `Locked (Lv ${requiredLevel})`;
+            } else {
+                btn.innerText = 'Start';
+            }
+
+            if ((!hasEnergy && !isThisActive) || !hasRequiredLevel) {
+                btn.disabled = true;
+                if (!hasEnergy && hasRequiredLevel && !isThisActive) {
+                    btn.innerText = 'No Energy';
+                }
+            }
+
+            btn.onclick = () => {
+                if (isThisActive || !hasRequiredLevel) return;
+
+                if (isBusy && state.activeTask.taskId !== task.id) {
+                    uiManager.network.stopTask();
+                }
+
+                uiManager.network.startTask(task.id, task.duration);
+            };
+
+            card.appendChild(btn);
+            grid.appendChild(card);
+        });
+
+        return;
+    } else if (skill.id === 'scavenging') {
+        const tiers = [
+            {
+                id: 'beginner',
+                label: 'Scrap-Strewn Outskirts',
+                minLevel: 1,
+                maxLevel: 10,
+                scene: 'scene_scav_beginner.png'
+            },
+            {
+                id: 'intermediate',
+                label: 'Derelict Workyards',
+                minLevel: 11,
+                maxLevel: 25,
+                scene: 'scene_scav_intermediate.png'
+            },
+            {
+                id: 'advanced',
+                label: 'Collapsed Industrial Quarter',
+                minLevel: 26,
+                maxLevel: 40,
+                scene: 'scene_scav_advanced.png'
+            },
+            {
+                id: 'expert',
+                label: 'Forsaken Tech Complex',
+                minLevel: 41,
+                maxLevel: 60,
+                scene: 'scene_scav_expert.png'
+            },
+            {
+                id: 'legendary',
+                label: 'Starfall Excavation Zone',
+                minLevel: 61,
+                maxLevel: 999,
+                scene: 'scene_scav_legendary.png'
+            }
+        ];
+
+        const tiersWithTasks = tiers.map(tier => ({
+            ...tier,
+            tasks: skill.tasks.filter(
+                task => (task.level || 1) >= tier.minLevel && (task.level || 1) <= tier.maxLevel
+            )
+        })).filter(tier => tier.tasks.length > 0);
+
+        if (tiersWithTasks.length === 0) {
+            return;
+        }
+
+        let activeTier =
+            tiersWithTasks.find(t => t.id === uiManager.scavengingActiveTier) ||
+            tiersWithTasks[0];
+        uiManager.scavengingActiveTier = activeTier.id;
+
+        const tabsBar = document.createElement('div');
+        tabsBar.className = 'tier-tabs';
+
+        tiersWithTasks.forEach(tier => {
+            const tab = document.createElement('button');
+            tab.className = 'tier-tab' + (tier.id === activeTier.id ? ' active' : '');
+            tab.innerText = tier.label;
+            tab.onclick = () => {
+                uiManager.scavengingActiveTier = tier.id;
+                showSkillDetails(uiManager, skill);
+            };
+            tabsBar.appendChild(tab);
+        });
+
+        const sceneWrapper = document.createElement('div');
+        sceneWrapper.className = 'tier-scene';
+        const sceneImg = document.createElement('img');
+        sceneImg.src = activeTier.scene;
+        sceneImg.alt = `${activeTier.label} region`;
+        sceneWrapper.appendChild(sceneImg);
+
+        skillDetails.insertBefore(sceneWrapper, grid);
+        skillDetails.insertBefore(tabsBar, sceneWrapper);
+
         activeTier.tasks.forEach(task => {
             const card = document.createElement('div');
             card.className = 'task-card';

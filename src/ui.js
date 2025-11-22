@@ -24,6 +24,22 @@ function preloadWoodcuttingScenes() {
     });
 }
 
+// Preload scavenging scene images so they are ready when switching tabs/skills
+function preloadScavengingScenes() {
+    const scenePaths = [
+        'scene_scav_beginner.png',
+        'scene_scav_intermediate.png',
+        'scene_scav_advanced.png',
+        'scene_scav_expert.png',
+        'scene_scav_legendary.png'
+    ];
+
+    scenePaths.forEach(src => {
+        const img = new Image();
+        img.src = src;
+    });
+}
+
 export class UIManager {
     constructor(networkManager, isHost = false) {
         this.network = networkManager;
@@ -37,6 +53,8 @@ export class UIManager {
         this._isIdle = false;     // derived from playerData.pausedTask
         // New: remember selected tier in woodcutting UI
         this.woodcuttingActiveTier = 'beginner';
+        // New: remember selected tier in scavenging UI
+        this.scavengingActiveTier = 'beginner';
         // New: track which skill is currently selected in the UI
         this.currentSkillId = null;
 
@@ -70,8 +88,9 @@ export class UIManager {
         this.clientUserDropdown = document.getElementById('client-user-dropdown');
         this.clientDelinkBtn = document.getElementById('client-delink-btn');
 
-        // Preload woodcutting region scenes to avoid flash-on-load when switching
+        // Preload woodcutting and scavenging region scenes to avoid flash-on-load when switching
         preloadWoodcuttingScenes();
+        preloadScavengingScenes();
 
         // Pre-fill host channel if saved
         const savedChannel = localStorage.getItem('sq_host_channel');

@@ -34,7 +34,14 @@ export const ITEM_NAMES = {
     mysterious_orb: 'Mysterious Orb',
     circuit_board: 'Circuit Board',
     power_core: 'Power Core',
-    broken_chip: 'Broken Chip'
+    broken_chip: 'Broken Chip',
+    drone_parts: 'Drone Parts',
+    mech_plating: 'Mech Plating',
+    lab_components: 'Lab Components',
+    quantum_components: 'Quantum Components',
+    automaton_core: 'Automaton Core',
+    research_data: 'Research Data Cache',
+    star_tech: 'Star-Era Tech Relic'
 };
 
 // Icon paths for inventory items
@@ -73,7 +80,14 @@ export const ITEM_ICONS = {
     mysterious_orb: 'item_mysterious_orb.png',
     circuit_board: 'item_circuit_board.png',
     power_core: 'item_power_core.png',
-    broken_chip: 'broken_chip.png'
+    broken_chip: 'broken_chip.png',
+    drone_parts: 'item_drone_parts.png',
+    mech_plating: 'item_mech_plating.png',
+    lab_components: 'item_lab_components.png',
+    quantum_components: 'item_quantum_components.png',
+    automaton_core: 'item_automaton_core.png',
+    research_data: 'item_research_data.png',
+    star_tech: 'item_star_tech.png'
 };
 
 export function renderInventory(inventoryListEl, playerData) {
