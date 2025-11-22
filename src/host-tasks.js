@@ -277,11 +277,40 @@ export function startTaskCompletionLoop(networkManager) {
                         );
                     }
 
-                    // Clear active task
-                    player.activeTask = null;
-                    // Auto-completed tasks should not leave a paused/idle state
-                    player.pausedTask = null;
-                    player.manualStop = false;
+                    // AUTO-RESTART: Check energy to decide if we loop or stop
+                    let hasEnergy = false;
+                    
+                    // 1. Check currently active cell
+                    if (player.activeEnergy && (player.activeEnergy.consumedMs || 0) < ONE_HOUR_MS) {
+                        hasEnergy = true;
+                    } 
+                    // 2. Or try to auto-consume a stored cell
+                    else if (player.energy.length > 0) {
+                        player.energy.shift();
+                        player.activeEnergy = { consumedMs: 0 };
+                        hasEnergy = true;
+                        appendHostLog(`Background: new energy cell auto-activated for ${player.username} (1h active).`);
+                    }
+
+                    if (hasEnergy && skillId) {
+                        // Restart task: Reset start time to now to begin next cycle
+                        player.activeTask.startTime = Date.now();
+                        player.pausedTask = null;
+                        player.manualStop = false;
+                    } else {
+                        // No energy (or invalid task), so we stop
+                        if (!hasEnergy) {
+                            appendHostLog(`Task "${taskId}" stopped for ${player.username}: Energy depleted.`);
+                        }
+                        
+                        // Save pause state
+                        player.pausedTask = {
+                            taskId: player.activeTask.taskId,
+                            duration: player.activeTask.duration
+                        };
+                        player.activeTask = null;
+                        player.manualStop = false; 
+                    }
                 }
 
                 // Persist any changes (task completion or energy expiry)

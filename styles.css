@@ -229,6 +229,7 @@ header {
     gap: 4px;
 }
 
+/* Existing styles for names/meta */
 .dropdown-list .user-name {
     color: var(--text-main);
 }
@@ -236,6 +237,34 @@ header {
 .dropdown-list .user-meta {
     color: var(--text-dim);
     font-size: 0.7rem;
+}
+
+/* New: clickable vs non-clickable state styling */
+.dropdown-list li.clickable {
+    cursor: pointer;
+}
+
+.dropdown-list li.clickable:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* Unlinked realtime WebSim users with no profile */
+.dropdown-list li.unlinked-no-profile .user-name {
+    color: var(--text-dim);
+}
+
+.dropdown-list li.unlinked-no-profile {
+    cursor: default;
+}
+
+/* Linked profile highlight */
+.dropdown-list li.linked-profile .user-meta {
+    color: var(--primary);
+}
+
+/* Twitch user items */
+.dropdown-list li.twitch-user-item .user-meta {
+    font-style: italic;
 }
 
 .copy-status {

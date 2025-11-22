@@ -4,14 +4,20 @@ export function setupPresenceWatcher(networkManager) {
 
     // Host tracks realtime Websim users
     room.subscribePresence(() => {
-        if (!networkManager.onPresenceUpdate) return;
         const peers = Object.entries(room.peers || {}).map(([id, info]) => ({
             id,
             username: info.username
         }));
-        networkManager.onPresenceUpdate(peers);
-        // Also refresh Twitch users list so linked WebSim usernames stay up to date
-        networkManager.refreshPlayerList();
+
+        // If a presence update callback is registered, call it
+        if (networkManager.onPresenceUpdate) {
+            networkManager.onPresenceUpdate(peers);
+        }
+
+        // Always refresh Twitch users list so linked WebSim usernames stay up to date
+        if (typeof networkManager.refreshPlayerList === 'function') {
+            networkManager.refreshPlayerList();
+        }
     });
 
     // Initial fire

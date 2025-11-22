@@ -20,11 +20,56 @@ export function setupHostUI(uiManager) {
         hostUserMenu.style.display = 'flex';
     }
 
+    // New: Listen for global database saves to update UI if spectating
+    window.addEventListener('sq:player_update', (e) => {
+        const p = e.detail;
+        if (uiManager.spectatingId === p.twitchId) {
+             uiManager.updateState(p);
+        }
+    });
+
+    // Helper: when a host clicks a user, show their profile (skills/inventory) in the main UI
+    const onViewPlayer = (player) => {
+        if (!player) return;
+        if (typeof uiManager.showPlayerProfile === 'function') {
+            uiManager.showPlayerProfile(player);
+        }
+    };
+    
+    // Attach a refresher to uiManager so we can update the dropdown content dynamically
+    uiManager.refreshHostUserMenu = () => {
+        // If spectating, add a "Return to My Profile" button at the top
+        const existingReturnBtn = hostUserDropdown.querySelector('#host-return-btn-container');
+        if (uiManager.spectatingId) {
+            if (!existingReturnBtn) {
+                const container = document.createElement('div');
+                container.id = 'host-return-btn-container';
+                container.className = 'dropdown-section';
+                container.innerHTML = `
+                    <button class="primary-btn small-primary-btn" style="width:100%; font-size:0.8rem;">
+                        Return to My Profile
+                    </button>
+                `;
+                container.querySelector('button').onclick = () => {
+                    uiManager.stopSpectating();
+                };
+                hostUserDropdown.insertBefore(container, hostUserDropdown.firstChild);
+            }
+        } else {
+            if (existingReturnBtn) {
+                existingReturnBtn.remove();
+            }
+        }
+    };
+
     // Host dropdown interactions
     if (hostUserBtn && hostUserDropdown) {
         hostUserBtn.addEventListener('click', () => {
             const isOpen = hostUserDropdown.style.display === 'block';
             hostUserDropdown.style.display = isOpen ? 'none' : 'block';
+            if (!isOpen) {
+                uiManager.refreshHostUserMenu();
+            }
         });
 
         // Close dropdown when clicking outside
@@ -102,45 +147,96 @@ export function setupHostUI(uiManager) {
         });
     }
 
+    // Track latest players list on the network manager so we can correlate peers <-> players
+    network.lastPlayers = network.lastPlayers || [];
+
     // Hook host-specific callbacks
     network.onPresenceUpdate = (peers) => {
-        renderRealtimeUsers(peers, realtimeUsersList);
+        // Re-render realtime users whenever presence changes, using the last known players list
+        renderRealtimeUsers(peers, realtimeUsersList, onViewPlayer, network.lastPlayers);
     };
 
     network.onPlayerListUpdate = (players, peers) => {
-        renderTwitchUsers(players, peers, twitchUsersList);
+        // Cache players for use in presence updates and realtime/twitch rendering
+        network.lastPlayers = Array.isArray(players) ? players : [];
+
+        renderTwitchUsers(players, peers, twitchUsersList, onViewPlayer);
+        renderRealtimeUsers(
+            Object.entries(peers || {}).map(([id, info]) => ({
+                id,
+                username: info.username
+            })),
+            realtimeUsersList,
+            onViewPlayer,
+            network.lastPlayers
+        );
     };
 }
 
-export function renderRealtimeUsers(peers, listEl) {
+export function renderRealtimeUsers(peers, listEl, onViewPlayer, players) {
     if (!listEl) return;
     listEl.innerHTML = '';
+    const allPlayers = Array.isArray(players) ? players : [];
+
     peers.forEach(peer => {
         const li = document.createElement('li');
-        li.textContent = peer.username || peer.id;
+
+        // Find if this realtime WebSim user is linked to a Twitch player profile
+        const linkedPlayer = allPlayers.find(p => p.linkedWebsimId === peer.id);
+
+        if (linkedPlayer) {
+            // Linked realtime user: show "WebSim ↔ Twitch" and make clickable
+            li.classList.add('linked-profile', 'clickable');
+            li.innerHTML = `
+                <span class="user-name">${peer.username}</span>
+                <span class="user-meta">(linked ↔ ${linkedPlayer.username})</span>
+            `;
+            if (typeof onViewPlayer === 'function') {
+                li.addEventListener('click', () => onViewPlayer(linkedPlayer));
+            }
+        } else {
+            // Unlinked realtime user: WebSim username only, grey, not clickable (no profile)
+            li.classList.add('unlinked-no-profile');
+            li.innerHTML = `
+                <span class="user-name">${peer.username}</span>
+                <span class="user-meta">(no profile)</span>
+            `;
+        }
+
         listEl.appendChild(li);
     });
 }
 
-export function renderTwitchUsers(players, peers, listEl) {
+export function renderTwitchUsers(players, peers, listEl, onViewPlayer) {
     if (!listEl) return;
     listEl.innerHTML = '';
-    players.forEach(player => {
-        const li = document.createElement('li');
-        const linked = player.linkedWebsimId ? 'linked' : 'unlinked';
+    const peersMap = peers || {};
 
-        let linkedName = '';
-        if (player.linkedWebsimId && peers && peers[player.linkedWebsimId]) {
-            const peerInfo = peers[player.linkedWebsimId];
-            linkedName = peerInfo.username || player.linkedWebsimId;
+    (players || []).forEach(player => {
+        const li = document.createElement('li');
+        const isLinked = !!player.linkedWebsimId && !!peersMap[player.linkedWebsimId];
+
+        li.classList.add('twitch-user-item', 'clickable');
+
+        let linkedLabel = '';
+        if (isLinked) {
+            const peerInfo = peersMap[player.linkedWebsimId];
+            const websimName = peerInfo?.username || player.linkedWebsimId;
+            linkedLabel = `(linked ↔ ${websimName})`;
+        } else {
+            // Unlinked Twitch users still have a profile and are playing
+            linkedLabel = '(unlinked)';
         }
 
         li.innerHTML = `
             <span class="user-name">${player.username}</span>
-            <span class="user-meta">
-                (${linked}${linkedName ? ' → ' + linkedName : ''})
-            </span>
+            <span class="user-meta">${linkedLabel}</span>
         `;
+
+        if (typeof onViewPlayer === 'function') {
+            li.addEventListener('click', () => onViewPlayer(player));
+        }
+
         listEl.appendChild(li);
     });
 }

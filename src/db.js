@@ -33,6 +33,9 @@ export async function savePlayer(twitchId, data) {
     const jsonString = JSON.stringify(data);
     const compressed = pako.deflate(jsonString);
     await db.put(STORE_NAME, { twitchId, data: compressed });
+    
+    // Notify application of player update (for Host UI spectating)
+    window.dispatchEvent(new CustomEvent('sq:player_update', { detail: data }));
 }
 
 // Load player data (Decompressed)

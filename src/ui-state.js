@@ -32,13 +32,6 @@ export function updateState(uiManager, playerData) {
                 : now - (playerData.activeEnergy.startTime || 0) < ONE_HOUR_MS
         );
 
-    // New: detect if we are about to auto-restart the previous task
-    const willAutoRestart =
-        hasActiveEnergy &&
-        prevActiveTask &&
-        !playerData.activeTask &&
-        !uiManager._manualStop;
-
     // Update energy cell drain bar (percent + visual state)
     if (uiManager.energyBarFill && uiManager.energyBarBg) {
         const ae = playerData.activeEnergy;
@@ -59,9 +52,8 @@ export function updateState(uiManager, playerData) {
             if (remainingPct > 100) remainingPct = 100;
             uiManager.energyBarFill.style.width = `${remainingPct}%`;
 
-            // Treat the bar as "draining" while a task is running OR
-            // during the brief auto-restart window to avoid a visual freeze.
-            const isDraining = !!(hasActiveEnergy && (playerData.activeTask || willAutoRestart));
+            // Treat the bar as "draining" while a task is running
+            const isDraining = !!(hasActiveEnergy && playerData.activeTask);
 
             // Toggle classes for visual state
             uiManager.energyBarBg.classList.toggle('draining', isDraining);
@@ -76,29 +68,7 @@ export function updateState(uiManager, playerData) {
         }
     }
 
-    // Auto-restart last task while energy cell is active (only when we didn't manually stop)
-    if (hasActiveEnergy && prevActiveTask && !playerData.activeTask && !uiManager._manualStop) {
-        const taskId = prevActiveTask.taskId;
-        let duration = prevActiveTask.duration;
-
-        if (!duration) {
-            // Fallback: look up duration from SKILLS if missing on legacy data
-            for (const skill of Object.values(SKILLS)) {
-                const t = skill.tasks.find((t) => t.id === taskId);
-                if (t) {
-                    duration = t.duration;
-                    break;
-                }
-            }
-        }
-
-        if (taskId && duration) {
-            // Start the next iteration immediately and keep UI visible;
-            // we'll get a fresh state_update for the new task.
-            uiManager.network.startTask(taskId, duration);
-            return;
-        }
-    } else if (!playerData.activeTask && !hasActiveEnergy) {
+    if (!playerData.activeTask && !hasActiveEnergy) {
         // If there is no active task and no active energy, clear any manual-stop suppression
         uiManager._manualStop = false;
         uiManager._isIdle = false;
