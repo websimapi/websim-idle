@@ -2,6 +2,39 @@ import { savePlayer, getPlayer, getAllPlayers } from './db.js';
 import { SKILLS } from './skills.js';
 import { appendHostLog, ONE_HOUR_MS, getAvailableEnergyCount, normalizeActiveEnergy } from './network-common.js';
 
+// Helper: random integer between min and max inclusive
+function randomInt(min, max) {
+    const lo = Math.ceil(min);
+    const hi = Math.floor(max);
+    return Math.floor(Math.random() * (hi - lo + 1)) + lo;
+}
+
+// Helper: resolve rewards for a completed task based on its reward definition
+function resolveTaskRewards(taskDef) {
+    const rewards = {};
+    if (!taskDef || !taskDef.reward) return rewards;
+
+    const r = taskDef.reward;
+
+    if (r.type === 'quantity') {
+        const qty = randomInt(r.min, r.max);
+        if (qty > 0) {
+            rewards[r.itemId] = (rewards[r.itemId] || 0) + qty;
+        }
+    } else if (r.type === 'lootTable' && Array.isArray(r.table)) {
+        r.table.forEach(entry => {
+            if (Math.random() <= (entry.chance ?? 0)) {
+                const qty = randomInt(entry.min ?? 1, entry.max ?? 1);
+                if (qty > 0) {
+                    rewards[entry.itemId] = (rewards[entry.itemId] || 0) + qty;
+                }
+            }
+        });
+    }
+
+    return rewards;
+}
+
 // Host-only message handler wiring
 export function setupHostListeners(networkManager) {
     const room = networkManager.room;
@@ -81,6 +114,7 @@ export function setupHostListeners(networkManager) {
             if (player) {
                 // Normalize legacy structures
                 if (!Array.isArray(player.energy)) player.energy = [];
+                if (!player.inventory) player.inventory = {};
                 if (player.activeEnergy && !player.activeEnergy.startTime) {
                     player.activeEnergy = null;
                 }
@@ -218,6 +252,8 @@ export function startTaskCompletionLoop(networkManager) {
             for (const player of players) {
                 // Ensure legacy safe structures
                 if (!Array.isArray(player.energy)) player.energy = [];
+                if (!player.inventory) player.inventory = {};
+                if (!player.skills) player.skills = {};
                 if (player.activeEnergy && !player.activeEnergy.startTime) {
                     player.activeEnergy = null;
                 }
@@ -244,13 +280,16 @@ export function startTaskCompletionLoop(networkManager) {
                 const elapsed = active ? now - (active.startTime || 0) : 0;
 
                 if (active && elapsed >= (active.duration || 0)) {
-                    // Determine which skill this task belongs to
+                    // Determine which skill this task belongs to and its definition
                     const taskId = active.taskId;
                     let skillId = null;
+                    let taskDef = null;
 
                     for (const [sid, skill] of Object.entries(SKILLS)) {
-                        if (skill.tasks.some(t => t.id === taskId)) {
+                        const found = skill.tasks.find(t => t.id === taskId);
+                        if (found) {
                             skillId = sid;
+                            taskDef = found;
                             break;
                         }
                     }
@@ -259,7 +298,6 @@ export function startTaskCompletionLoop(networkManager) {
 
                     if (skillId) {
                         // Ensure skills/structure exists
-                        if (!player.skills) player.skills = {};
                         if (!player.skills[skillId]) {
                             player.skills[skillId] = { tasks: {} };
                         }
@@ -270,12 +308,28 @@ export function startTaskCompletionLoop(networkManager) {
                             player.skills[skillId].tasks[taskId] = [];
                         }
 
-                        // Append completion timestamp
-                        player.skills[skillId].tasks[taskId].push(completedAt);
+                        // Resolve rewards and XP
+                        const xpGained = taskDef?.xp ?? 0;
+                        const rewards = resolveTaskRewards(taskDef);
+
+                        // Update inventory
+                        Object.entries(rewards).forEach(([itemId, qty]) => {
+                            player.inventory[itemId] = (player.inventory[itemId] || 0) + qty;
+                        });
+
+                        // Append completion record
+                        const completionRecord = {
+                            completedAt,
+                            xp: xpGained,
+                            rewards
+                        };
+
+                        player.skills[skillId].tasks[taskId].push(completionRecord);
+
                         appendHostLog(
                             `Task "${taskId}" completed for ${player.username} at ${new Date(
                                 completedAt
-                            ).toLocaleTimeString()}.`
+                            ).toLocaleTimeString()} (XP: ${xpGained}, Rewards: ${JSON.stringify(rewards)}).`
                         );
                     } else {
                         appendHostLog(

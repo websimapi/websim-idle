@@ -3,6 +3,25 @@ import { setupHostUI } from './ui-host.js';
 
 const ONE_HOUR_MS = 60 * 60 * 1000; // matches server-side energy duration
 
+// Friendly names for inventory items
+const ITEM_NAMES = {
+    log_oak: 'Oak Logs',
+    log_willow: 'Willow Logs',
+    log_maple: 'Maple Logs',
+    fish_shrimp: 'Shrimp',
+    fish_trout: 'Trout',
+    fish_shark: 'Shark',
+    scrap_metal: 'Scrap Metal',
+    torn_cloth: 'Torn Cloth',
+    bottle_caps: 'Bottle Caps',
+    ancient_scrap: 'Ancient Scrap',
+    old_gears: 'Old Gears',
+    mysterious_orb: 'Mysterious Orb',
+    circuit_board: 'Circuit Board',
+    power_core: 'Power Core',
+    broken_chip: 'Broken Chip'
+};
+
 export class UIManager {
     constructor(networkManager, isHost = false) {
         this.network = networkManager;
@@ -22,6 +41,7 @@ export class UIManager {
         this.usernameDisplay = document.getElementById('username');
         this.userAvatar = document.getElementById('user-avatar');
         this.linkAccountBtn = document.getElementById('link-account-btn');
+        this.inventoryList = document.getElementById('inventory-list');
 
         // Host-specific elements
         this.hostUserMenu = document.getElementById('host-user-menu');
@@ -271,6 +291,33 @@ export class UIManager {
         });
     }
 
+    renderInventory(playerData) {
+        if (!this.inventoryList) return;
+        this.inventoryList.innerHTML = '';
+
+        const inv = playerData?.inventory || {};
+        const entries = Object.entries(inv).filter(([, qty]) => qty > 0);
+
+        if (entries.length === 0) {
+            const li = document.createElement('li');
+            li.textContent = 'Empty';
+            this.inventoryList.appendChild(li);
+            return;
+        }
+
+        entries.sort((a, b) => a[0].localeCompare(b[0]));
+
+        entries.forEach(([itemId, qty]) => {
+            const li = document.createElement('li');
+            const name = ITEM_NAMES[itemId] || itemId;
+            li.innerHTML = `
+                <span>${name}</span>
+                <span>${qty}</span>
+            `;
+            this.inventoryList.appendChild(li);
+        });
+    }
+
     updateState(playerData) {
         const prevActiveTask = this.state ? this.state.activeTask : null;
         this.state = playerData;
@@ -367,6 +414,9 @@ export class UIManager {
                 this.network.startTask(taskId, duration);
             }
         }
+
+        // Update inventory panel
+        this.renderInventory(playerData);
     }
 
     startProgressLoop(taskData) {

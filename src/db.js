@@ -95,7 +95,7 @@ export async function replaceAllPlayers(playersArray) {
 export function createNewPlayer(username, twitchId) {
     // Initialize skills structure:
     // skills: {
-    //   woodcutting: { tasks: { [taskId]: [timestamp, ...] } },
+    //   woodcutting: { tasks: { [taskId]: [completionRecord, ...] } },
     //   scavenging: { tasks: { ... } },
     //   fishing: { tasks: { ... } }
     // }
@@ -110,6 +110,7 @@ export function createNewPlayer(username, twitchId) {
         username,
         twitchId,
         skills,
+        inventory: {}, // itemId -> quantity
         energy: [], // Array of timestamps (stored/unactivated energy)
         lastChatTime: 0,
         activeTask: null, // { taskId, startTime, duration }

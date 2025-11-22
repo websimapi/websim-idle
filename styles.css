@@ -344,6 +344,35 @@ main {
     overflow-y: auto;
 }
 
+/* New: Inventory Sidebar on the right */
+.inventory-sidebar {
+    width: 220px;
+    background: var(--bg-panel);
+    border-left: 1px solid var(--border);
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.inventory-sidebar h2 {
+    margin-bottom: 15px;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+}
+
+.inventory-list {
+    list-style: none;
+    padding-left: 0;
+    font-size: 0.85rem;
+}
+
+.inventory-list li {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+
 /* Auth Overlay */
 .overlay {
     position: absolute;
