@@ -40,6 +40,22 @@ function preloadScavengingScenes() {
     });
 }
 
+// New: preload fishing scene images for tiered fishing regions
+function preloadFishingScenes() {
+    const scenePaths = [
+        'scene_fish_beginner.png',
+        'scene_fish_intermediate.png',
+        'scene_fish_advanced.png',
+        'scene_fish_expert.png',
+        'scene_fish_legendary.png'
+    ];
+
+    scenePaths.forEach(src => {
+        const img = new Image();
+        img.src = src;
+    });
+}
+
 export class UIManager {
     constructor(networkManager, isHost = false) {
         this.network = networkManager;
@@ -55,6 +71,8 @@ export class UIManager {
         this.woodcuttingActiveTier = 'beginner';
         // New: remember selected tier in scavenging UI
         this.scavengingActiveTier = 'beginner';
+        // New: remember selected tier in fishing UI
+        this.fishingActiveTier = 'beginner';
         // New: track which skill is currently selected in the UI
         this.currentSkillId = null;
         
@@ -108,6 +126,8 @@ export class UIManager {
         // Preload woodcutting and scavenging region scenes to avoid flash-on-load when switching
         preloadWoodcuttingScenes();
         preloadScavengingScenes();
+        // Also preload fishing regions for smooth tier switching
+        preloadFishingScenes();
 
         // Pre-fill host channel if saved
         const savedChannel = localStorage.getItem('sq_host_channel');
