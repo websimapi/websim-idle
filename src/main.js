@@ -25,6 +25,24 @@ async function init() {
             hostConsole.style.display = 'flex';
         }
         // Host menu and auth overlay visibility handled in UIManager
+
+        // Auto-connect to last used Twitch channel if available
+        const savedChannel = localStorage.getItem('sq_host_channel');
+        if (savedChannel) {
+            const connected = network.connectTwitch(savedChannel);
+            if (connected) {
+                const statusEl = document.getElementById('tmi-status');
+                if (statusEl) {
+                    statusEl.innerText = "Status: Connected to " + savedChannel;
+                    statusEl.style.color = "#4ade80";
+                }
+                // After auto-connect, attempt auto-sync with stored token
+                const token = localStorage.getItem('sq_token');
+                if (token) {
+                    network.syncWithToken(token);
+                }
+            }
+        }
     }
 
     // Attempt auto-sync with stored token
