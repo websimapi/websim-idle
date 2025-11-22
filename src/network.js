@@ -1,7 +1,7 @@
-import { savePlayer, getPlayer, createNewPlayer, setDbChannel, getAllPlayers } from './db.js';
-import { SKILLS } from './skills.js';
-import { appendHostLog, ONE_HOUR_MS, getAvailableEnergyCount, normalizeActiveEnergy } from './network-common.js';
+import { getPlayer, setDbChannel, getAllPlayers } from './db.js';
+import { appendHostLog } from './network-common.js';
 import { setupHostListeners, setupPresenceWatcher, startTaskCompletionLoop } from './network-host.js';
+import { handleTwitchChat } from './host-chat.js';
 
 // Simulation of a JWT Secret (In a real app, this is server-side only)
 const SECRET_KEY = "mock_secret_key_" + Math.random();
@@ -90,15 +90,6 @@ export class NetworkManager {
         return true;
     }
 
-    generateLinkCode() {
-        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-        let code = '';
-        for (let i = 0; i < 6; i++) {
-            code += chars[Math.floor(Math.random() * chars.length)];
-        }
-        return code;
-    }
-
     cleanupExpiredCodes() {
         const now = Date.now();
         const ttl = 5 * 60 * 1000; // 5 minutes
@@ -111,82 +102,7 @@ export class NetworkManager {
     }
 
     async handleTwitchMessage(tags, message) {
-        const twitchId = tags['user-id'];
-        const username = tags['username'];
-        const now = Date.now();
-
-        // 1. Energy Logic
-        let player = await getPlayer(twitchId);
-        if (!player) {
-            player = createNewPlayer(username, twitchId);
-            appendHostLog(`New Twitch user detected: ${username} (${twitchId}).`);
-        }
-
-        // Ensure energy structures exist on older records
-        if (!Array.isArray(player.energy)) player.energy = [];
-        if (!player.skills) player.skills = {};
-        if (player.activeEnergy && !player.activeEnergy.startTime) {
-            // legacy safety
-            player.activeEnergy = null;
-        }
-
-        // Clear expired active energy (if any)
-        await normalizeActiveEnergy(player);
-
-        // Check energy threshold (5 minutes)
-        if (now - player.lastChatTime > 300000) { 
-            const totalAvailable = getAvailableEnergyCount(player);
-            if (totalAvailable < 12) {
-                player.energy.push(now); // Add stored energy cell
-                appendHostLog(`Stored energy +1 for ${username} (now ${getAvailableEnergyCount(player)}/12).`);
-                // Notify if they are online via WebSim
-                if (player.linkedWebsimId) {
-                    this.room.send({
-                        type: 'energy_update',
-                        targetId: player.linkedWebsimId,
-                        energy: player.energy,
-                        activeEnergy: player.activeEnergy
-                    });
-                }
-            }
-            player.lastChatTime = now;
-            await savePlayer(twitchId, player);
-        }
-
-        // 2. Command Logic
-        if (message.startsWith('!link ')) {
-            const code = message.split(' ')[1];
-            appendHostLog(`!link attempt by ${username} with code "${code}".`);
-            this.cleanupExpiredCodes();
-            const entry = this.pendingLinks[code];
-            if (entry) {
-                const websimClientId = entry.websimClientId;
-
-                // Link them
-                player.linkedWebsimId = websimClientId;
-                await savePlayer(twitchId, player);
-
-                // Generate "Token"
-                const token = btoa(JSON.stringify({ twitchId, exp: now + (7 * 24 * 60 * 60 * 1000) }));
-
-                // Inform Client
-                this.room.send({
-                    type: 'link_success',
-                    targetId: websimClientId,
-                    token: token,
-                    playerData: player
-                });
-
-                delete this.pendingLinks[code];
-                appendHostLog(`Link success: ${username} ↔ WebSim client ${websimClientId}.`);
-                console.log(`Linked ${username} to websim client ${websimClientId}`);
-            } else {
-                appendHostLog(`Link failed for ${username}: code "${code}" not found or expired.`);
-            }
-        }
-
-        // Update Twitch user list in dropdown
-        this.refreshPlayerList();
+        return handleTwitchChat(this, tags, message);
     }
 
     async exportChannelData() {
