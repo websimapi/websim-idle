@@ -73,6 +73,12 @@ export class UIManager {
         this.userAvatar = document.getElementById('user-avatar');
         this.linkAccountBtn = document.getElementById('link-account-btn');
         this.inventoryList = document.getElementById('inventory-list');
+        
+        // Inventory Tabs
+        this.tabInventory = document.getElementById('tab-inventory');
+        this.tabEquipment = document.getElementById('tab-equipment');
+        this.inventoryView = document.getElementById('inventory-view');
+        this.equipmentView = document.getElementById('equipment-view');
 
         // Host-specific elements
         this.hostUserMenu = document.getElementById('host-user-menu');

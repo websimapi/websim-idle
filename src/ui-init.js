@@ -168,6 +168,23 @@ export function initListeners(uiManager) {
         uiManager.updateAuthUI();
     };
 
+    // Inventory Tab Switching
+    if (uiManager.tabInventory && uiManager.tabEquipment) {
+        uiManager.tabInventory.addEventListener('click', () => {
+            uiManager.tabInventory.classList.add('active');
+            uiManager.tabEquipment.classList.remove('active');
+            if (uiManager.inventoryView) uiManager.inventoryView.style.display = 'block';
+            if (uiManager.equipmentView) uiManager.equipmentView.style.display = 'none';
+        });
+
+        uiManager.tabEquipment.addEventListener('click', () => {
+            uiManager.tabEquipment.classList.add('active');
+            uiManager.tabInventory.classList.remove('active');
+            if (uiManager.inventoryView) uiManager.inventoryView.style.display = 'none';
+            if (uiManager.equipmentView) uiManager.equipmentView.style.display = 'block';
+        });
+    }
+
     // Host presence/player list callbacks are wired in setupHostUI
     // removed inline network.onPresenceUpdate and onPlayerListUpdate handlers {}
 }
