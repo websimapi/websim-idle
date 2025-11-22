@@ -20,6 +20,17 @@ export function setupHostUI(uiManager) {
         hostUserMenu.style.display = 'flex';
     }
 
+    // Host console <-> chat view toggle
+    const hostConsole = uiManager.hostConsoleContainer;
+    const toggleBtn = document.getElementById('host-console-toggle');
+    if (hostConsole && toggleBtn) {
+        toggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isChat = hostConsole.classList.toggle('chat-view');
+            toggleBtn.textContent = isChat ? 'Chat' : 'Host Console';
+        });
+    }
+
     // New: Listen for global database saves to update UI if spectating
     window.addEventListener('sq:player_update', (e) => {
         const p = e.detail;

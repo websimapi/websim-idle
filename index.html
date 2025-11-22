@@ -119,7 +119,7 @@
                 <!-- Host Console (Host only, now inside content area) -->
                 <div id="host-console-container" class="host-console" style="display:none;">
                     <div class="host-console-header">
-                        <span>Host Console</span>
+                        <button id="host-console-toggle" class="host-console-toggle-btn">Host Console</button>
                         <!-- Moved Twitch channel controls here, to the right of the label -->
                         <div id="host-controls" class="host-top-bar" style="display:none;">
                             <input type="text" id="twitch-channel-input" placeholder="Twitch channel">
@@ -150,6 +150,15 @@
                         </div>
                     </div>
                     <div id="host-console-log" class="host-console-log"></div>
+                    <div class="host-console-input-row">
+                        <input
+                            id="chat-input"
+                            type="text"
+                            autocomplete="off"
+                            placeholder="Enter message..."
+                        />
+                        <button id="chat-send-btn" class="small-btn">Send</button>
+                    </div>
                 </div>
 
             </section>

@@ -123,6 +123,12 @@ export class UIManager {
         this.offlineLootGrid = document.getElementById('offline-loot-grid');
         this.offlineSkillInfo = document.getElementById('offline-skill-info');
 
+        // Chat / console elements
+        this.chatInput = document.getElementById('chat-input');
+        this.chatSendBtn = document.getElementById('chat-send-btn');
+        this.chatLog = document.getElementById('host-console-log');
+        this.hostConsoleContainer = document.getElementById('host-console-container');
+
         // Preload woodcutting and scavenging region scenes to avoid flash-on-load when switching
         preloadWoodcuttingScenes();
         preloadScavengingScenes();
@@ -143,6 +149,7 @@ export class UIManager {
 
         this.initListeners();
         this.initOfflinePopupListeners(); // Attach offline popup listeners
+        this.initChatListeners(); // Attach chat UI listeners
         renderSkillsList(this);
         this.updateAuthUI();
     }
@@ -356,5 +363,83 @@ export class UIManager {
         if (this.isHost && typeof this.refreshHostUserMenu === 'function') {
             this.refreshHostUserMenu();
         }
+    }
+
+    initChatListeners() {
+        if (this.chatInput && this.chatSendBtn) {
+            const sendChat = () => {
+                const text = this.chatInput.value.trim();
+                if (!text) return;
+
+                // Optimistically render own message
+                const username =
+                    (this.state && this.state.username) ||
+                    (this.network.user && (this.network.user.username || this.network.user.name)) ||
+                    'You';
+                this.appendChatMessage({
+                    username,
+                    text,
+                    self: true
+                });
+
+                this.network.sendChatMessage(text);
+                this.chatInput.value = '';
+            };
+
+            this.chatSendBtn.addEventListener('click', sendChat);
+            this.chatInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    sendChat();
+                }
+            });
+        }
+
+        // Receive chat messages from network
+        this.network.onChatMessage = (data) => {
+            // Skip rendering if this message originated from this client;
+            // we already rendered it optimistically.
+            if (this.network.room && data && data.clientId && data.clientId === this.network.room.clientId) {
+                return;
+            }
+
+            const isSelf =
+                this.network.room &&
+                data &&
+                data.clientId &&
+                data.clientId === this.network.room.clientId;
+
+            this.appendChatMessage({
+                username: data.username || 'Player',
+                text: data.text || '',
+                self: !!isSelf
+            });
+        };
+    }
+
+    appendChatMessage({ username, text, self }) {
+        if (!this.chatLog || !text) return;
+
+        // Ensure bottom-aligned layout in chat view by inserting a spacer
+        if (this.hostConsoleContainer && this.hostConsoleContainer.classList.contains('chat-view')) {
+            let spacer = this.chatLog.querySelector('.chat-spacer');
+            if (!spacer) {
+                spacer = document.createElement('div');
+                spacer.className = 'chat-spacer';
+                this.chatLog.insertBefore(spacer, this.chatLog.firstChild);
+            }
+        }
+
+        const line = document.createElement('div');
+        line.className = 'chat-line' + (self ? ' self' : '');
+        const userSpan = document.createElement('span');
+        userSpan.className = 'chat-user';
+        userSpan.textContent = `${username}:`;
+        const msgSpan = document.createElement('span');
+        msgSpan.textContent = text;
+        line.appendChild(userSpan);
+        line.appendChild(msgSpan);
+        this.chatLog.appendChild(line);
+        this.chatLog.scrollTop = this.chatLog.scrollHeight;
     }
 }

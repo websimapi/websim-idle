@@ -52,6 +52,11 @@
     bottom: 0;
 }
 
+/* Hide input row by default; only show in chat-view */
+.host-console .host-console-input-row {
+    display: none;
+}
+
 .host-console-header {
     display: flex;
     align-items: center;
@@ -59,6 +64,20 @@
     font-weight: bold;
     color: var(--text-dim);
     margin-bottom: 4px;
+}
+
+.host-console-toggle-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 2px 4px;
+}
+
+.host-console-toggle-btn:hover {
+    color: var(--primary);
 }
 
 .host-data-controls {
@@ -71,6 +90,72 @@
 #host-console-log {
     flex: 1;
     overflow-y: auto;
+}
+
+/* In chat view, treat log as a flex column so messages can sit at the bottom */
+.host-console.chat-view #host-console-log {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Spacer used to push chat lines to the bottom in chat view */
+.host-console.chat-view #host-console-log .chat-spacer {
+    flex: 1 1 auto;
+}
+
+/* Hide non-chat log lines when in chat view (only show chat messages) */
+.host-console.chat-view #host-console-log > :not(.chat-line):not(.chat-spacer) {
+    display: none;
+}
+
+/* Hide chat messages when NOT in chat view (only show host console logs) */
+.host-console:not(.chat-view) #host-console-log .chat-line {
+    display: none;
+}
+
+.host-console-input-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.host-console-input-row input {
+    flex: 1;
+    background: #000;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 8px;
+    color: var(--text-main);
+    font-size: 0.75rem;
+}
+
+.host-console-input-row input::placeholder {
+    color: var(--text-dim);
+}
+
+.chat-line {
+    padding: 1px 0;
+}
+
+.chat-line .chat-user {
+    color: var(--primary);
+    margin-right: 2px;
+}
+
+.chat-line.self .chat-user {
+    color: var(--accent);
+}
+
+/* When in chat-view, hide host-only controls */
+.host-console.chat-view .host-data-controls,
+.host-console.chat-view .host-top-bar {
+    display: none !important;
+}
+
+/* Show chat input row only in chat-view */
+.host-console.chat-view .host-console-input-row {
+    display: flex;
 }
 
 /* Tombstone: host console moved */

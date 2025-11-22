@@ -16,6 +16,14 @@ export function installHostMessageHandler(networkManager) {
 
         // Host handles both host-specific and client-style messages
 
+        // Shared in-room chat messages
+        if (data.type === 'chat_message') {
+            if (networkManager.onChatMessage) {
+                networkManager.onChatMessage(data);
+            }
+            return;
+        }
+
         if (data.type === 'link_code_generated') {
             appendHostLog(`Generated link code "${data.code}" for WebSim client ${senderId}.`);
             if (networkManager.onLinkCode) networkManager.onLinkCode(data.code);

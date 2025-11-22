@@ -23,6 +23,7 @@ export class NetworkManager {
         this.onPresenceUpdate = null;
         this.onPlayerListUpdate = null;
         this.onTokenInvalid = null; // fired when host rejects/expired token
+        this.onChatMessage = null; // fired when any in-room chat message is received
 
         this.initialize();
     }
@@ -257,6 +258,11 @@ export class NetworkManager {
                         this.onStateUpdate(data.playerData);
                     }
                     break;
+                case 'chat_message':
+                    if (this.onChatMessage) {
+                        this.onChatMessage(data);
+                    }
+                    break;
                 case 'token_invalid':
                     // Host rejected token (likely expired) – clear it and notify UI
                     localStorage.removeItem('sq_token');
@@ -298,6 +304,21 @@ export class NetworkManager {
         this.room.send({
             type: 'client_delink',
             token
+        });
+    }
+
+    // New: send an in-room chat message (host + clients)
+    sendChatMessage(text) {
+        if (!text) return;
+        const username =
+            (this.user && (this.user.username || this.user.name)) ||
+            'Player';
+        this.room.send({
+            type: 'chat_message',
+            username,
+            text,
+            ts: Date.now(),
+            clientId: this.room.clientId
         });
     }
 }

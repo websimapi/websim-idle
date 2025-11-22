@@ -24,15 +24,8 @@ async function init() {
 
     // Setup Host Specific UI
     if (isHost) {
-        document.getElementById('host-controls').style.display = 'block';
-        const hostConsole = document.getElementById('host-console-container');
-        if (hostConsole) {
-            hostConsole.style.display = 'flex';
-        }
-        // Host menu and auth overlay visibility handled in UIManager
-
-        // Auto-connect to last used Twitch channel if available
         const savedChannel = localStorage.getItem('sq_host_channel');
+        document.getElementById('host-controls').style.display = 'block';
         if (savedChannel) {
             const connected = network.connectTwitch(savedChannel);
             if (connected) {
@@ -50,11 +43,21 @@ async function init() {
         }
     }
 
-    // Attempt auto-sync with stored token
-    const token = localStorage.getItem('sq_token');
-    if (token && !isHost) {
-        // Clients auto-sync immediately on load
-        network.syncWithToken(token);
+    // Show console/chat pane for all users (host and regular clients)
+    const hostConsole = document.getElementById('host-console-container');
+    if (hostConsole) {
+        hostConsole.style.display = 'flex';
+
+        // For regular users, always show chat view (input visible)
+        if (!isHost) {
+            hostConsole.classList.add('chat-view');
+
+            // Ensure the header label reads "Chat" for regular users
+            const toggleBtn = document.getElementById('host-console-toggle');
+            if (toggleBtn) {
+                toggleBtn.textContent = 'Chat';
+            }
+        }
     }
 }
 
