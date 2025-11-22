@@ -101,6 +101,19 @@ export class NetworkManager {
         }
     }
 
+    generateLinkCode() {
+        // Generate a 6-character, human-friendly link code and avoid collisions
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no confusing 0/O/1/I
+        let code = '';
+        do {
+            code = '';
+            for (let i = 0; i < 6; i++) {
+                code += chars[Math.floor(Math.random() * chars.length)];
+            }
+        } while (this.pendingLinks[code]);
+        return code;
+    }
+
     async handleTwitchMessage(tags, message) {
         return handleTwitchChat(this, tags, message);
     }

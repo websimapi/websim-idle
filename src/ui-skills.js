@@ -10,6 +10,11 @@ export function renderSkillsList(uiManager) {
         const div = document.createElement('div');
         div.className = 'skill-item';
 
+        // Highlight the currently selected skill in the sidebar
+        if (uiManager.currentSkillId && uiManager.currentSkillId === skill.id) {
+            div.classList.add('active');
+        }
+
         const totalXp = computeSkillXp(state, skill.id);
         const levelInfo = getLevelInfo(totalXp);
         const progressPct = Math.round(levelInfo.progress * 100);
@@ -26,7 +31,17 @@ export function renderSkillsList(uiManager) {
                     </div>
                 </div>
             `;
-        div.onclick = () => showSkillDetails(uiManager, skill);
+        div.onclick = () => {
+            // Immediately update selected skill and visual highlight locally
+            uiManager.currentSkillId = skill.id;
+            if (uiManager.skillsList) {
+                const items = uiManager.skillsList.querySelectorAll('.skill-item');
+                items.forEach(itemEl => {
+                    itemEl.classList.toggle('active', itemEl === div);
+                });
+            }
+            showSkillDetails(uiManager, skill);
+        };
         skillsList.appendChild(div);
     });
 }
@@ -35,19 +50,180 @@ export function showSkillDetails(uiManager, skill) {
     const { skillDetails, state, computeEnergyCount } = uiManager;
     if (!skillDetails) return;
 
+    // Remember which skill is currently being shown so state updates can refresh correctly
+    uiManager.currentSkillId = skill.id;
+
     skillDetails.style.display = 'block';
-    document.getElementById('detail-icon').src = skill.icon;
-    document.getElementById('detail-name').innerText = skill.name;
-    document.getElementById('detail-desc').innerText = skill.description;
+
+    // Handle header visibility and content
+    const headerEl = skillDetails.querySelector('.skill-header');
+    if (skill.id === 'woodcutting') {
+        // Hide redundant header for woodcutting
+        if (headerEl) headerEl.style.display = 'none';
+    } else {
+        // Show and populate header for non-woodcutting skills
+        if (headerEl) {
+            headerEl.style.display = 'flex';
+            const iconEl = document.getElementById('detail-icon');
+            const nameEl = document.getElementById('detail-name');
+            const descEl = document.getElementById('detail-desc');
+            if (iconEl) iconEl.src = skill.icon;
+            if (nameEl) nameEl.innerText = skill.name;
+            if (descEl) descEl.innerText = skill.description;
+        }
+    }
 
     const grid = document.getElementById('task-grid');
     grid.innerHTML = '';
+
+    // Clear any existing tier UI (tabs + scene) before re-rendering
+    const oldTierEls = skillDetails.querySelectorAll('.tier-tabs, .tier-scene');
+    oldTierEls.forEach(el => el.remove());
 
     // Compute player's current level for this skill
     const totalXp = computeSkillXp(state, skill.id);
     const levelInfo = getLevelInfo(totalXp);
     const playerLevel = levelInfo.level;
 
+    // Special woodcutting UI with tier tabs + scene image
+    if (skill.id === 'woodcutting') {
+        const tiers = [
+            {
+                id: 'beginner',
+                label: 'Whispering Sapling Glade',
+                minLevel: 1,
+                maxLevel: 10,
+                scene: 'scene_wood_beginner.png'
+            },
+            {
+                id: 'intermediate',
+                label: 'Maplecrest Ridge',
+                minLevel: 11,
+                maxLevel: 20,
+                scene: 'scene_wood_intermediate.png'
+            },
+            {
+                id: 'advanced',
+                label: 'Elderheart Deepwood',
+                minLevel: 21,
+                maxLevel: 35,
+                scene: 'scene_wood_advanced.png'
+            },
+            {
+                id: 'expert',
+                label: 'Ancient Yew Sanctum',
+                minLevel: 36,
+                maxLevel: 50,
+                scene: 'scene_wood_expert.png'
+            },
+            {
+                id: 'legendary',
+                label: 'Worldroot Canyon',
+                minLevel: 51,
+                maxLevel: 999,
+                scene: 'scene_wood_legendary.png'
+            }
+        ];
+
+        // Only include tiers that actually have tasks
+        const tiersWithTasks = tiers.map(tier => ({
+            ...tier,
+            tasks: skill.tasks.filter(
+                task => (task.level || 1) >= tier.minLevel && (task.level || 1) <= tier.maxLevel
+            )
+        })).filter(tier => tier.tasks.length > 0);
+
+        if (tiersWithTasks.length === 0) {
+            return;
+        }
+
+        // Determine active tier
+        let activeTier =
+            tiersWithTasks.find(t => t.id === uiManager.woodcuttingActiveTier) ||
+            tiersWithTasks[0];
+        uiManager.woodcuttingActiveTier = activeTier.id;
+
+        // Tabs bar
+        const tabsBar = document.createElement('div');
+        tabsBar.className = 'tier-tabs';
+
+        tiersWithTasks.forEach(tier => {
+            const tab = document.createElement('button');
+            tab.className = 'tier-tab' + (tier.id === activeTier.id ? ' active' : '');
+            tab.innerText = tier.label;
+            tab.onclick = () => {
+                uiManager.woodcuttingActiveTier = tier.id;
+                showSkillDetails(uiManager, skill);
+            };
+            tabsBar.appendChild(tab);
+        });
+
+        // Scene image for active tier
+        const sceneWrapper = document.createElement('div');
+        sceneWrapper.className = 'tier-scene';
+        const sceneImg = document.createElement('img');
+        sceneImg.src = activeTier.scene;
+        sceneImg.alt = `${activeTier.label} region`;
+        sceneWrapper.appendChild(sceneImg);
+
+        // Insert tabs + scene before the grid
+        skillDetails.insertBefore(sceneWrapper, grid);
+        skillDetails.insertBefore(tabsBar, sceneWrapper);
+
+        // Render only tasks for active tier
+        activeTier.tasks.forEach(task => {
+            const card = document.createElement('div');
+            card.className = 'task-card';
+
+            const hasEnergy = state && computeEnergyCount(state) > 0;
+            const isBusy = state && state.activeTask;
+            const isThisActive = isBusy && state.activeTask.taskId === task.id;
+            const requiredLevel = task.level || 1;
+            const hasRequiredLevel = playerLevel >= requiredLevel;
+
+            card.innerHTML = `
+                <h4>${task.name}</h4>
+                <div class="task-meta-row">
+                    <span>${task.duration / 1000}s</span>
+                    <span>${task.xp} XP</span>
+                    <span>Lv ${requiredLevel}</span>
+                </div>
+            `;
+
+            const btn = document.createElement('button');
+            if (isThisActive) {
+                btn.innerText = 'In Progress';
+            } else if (!hasRequiredLevel) {
+                btn.innerText = `Locked (Lv ${requiredLevel})`;
+            } else {
+                btn.innerText = 'Start';
+            }
+
+            if ((!hasEnergy && !isThisActive) || !hasRequiredLevel) {
+                btn.disabled = true;
+                if (!hasEnergy && hasRequiredLevel && !isThisActive) {
+                    btn.innerText = 'No Energy';
+                }
+            }
+
+            btn.onclick = () => {
+                if (isThisActive || !hasRequiredLevel) return;
+
+                if (isBusy && state.activeTask.taskId !== task.id) {
+                    uiManager.network.stopTask();
+                }
+
+                uiManager.network.startTask(task.id, task.duration);
+            };
+
+            card.appendChild(btn);
+            grid.appendChild(card);
+        });
+
+        return;
+    }
+
+    // Default rendering for non-woodcutting skills
     skill.tasks.forEach(task => {
         const card = document.createElement('div');
         card.className = 'task-card';
@@ -60,13 +236,14 @@ export function showSkillDetails(uiManager, skill) {
 
         card.innerHTML = `
                 <h4>${task.name}</h4>
-                <p>Time: ${task.duration / 1000}s</p>
-                <p>XP: ${task.xp}</p>
-                <p>Level Req: ${requiredLevel}</p>
+                <div class="task-meta-row">
+                    <span>${task.duration / 1000}s</span>
+                    <span>${task.xp} XP</span>
+                    <span>Lv ${requiredLevel}</span>
+                </div>
             `;
 
         const btn = document.createElement('button');
-        // Label logic: active task shows "In Progress", locked tasks show requirement, others show "Start"
         if (isThisActive) {
             btn.innerText = 'In Progress';
         } else if (!hasRequiredLevel) {
@@ -75,7 +252,6 @@ export function showSkillDetails(uiManager, skill) {
             btn.innerText = 'Start';
         }
 
-        // Disable when no energy (and not already active) or level requirement not met
         if ((!hasEnergy && !isThisActive) || !hasRequiredLevel) {
             btn.disabled = true;
             if (!hasEnergy && hasRequiredLevel && !isThisActive) {
@@ -84,15 +260,12 @@ export function showSkillDetails(uiManager, skill) {
         }
 
         btn.onclick = () => {
-            // Do nothing if this task is already active or level is insufficient
             if (isThisActive || !hasRequiredLevel) return;
 
-            // If another task is currently running, stop it first
             if (isBusy && state.activeTask.taskId !== task.id) {
                 uiManager.network.stopTask();
             }
 
-            // Start the requested task (host will validate energy and level)
             uiManager.network.startTask(task.id, task.duration);
         };
 
