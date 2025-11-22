@@ -1,6 +1,6 @@
 import { getPlayer, setDbChannel, getAllPlayers } from './db.js';
 import { appendHostLog } from './network-common.js';
-import { setupHostListeners, setupPresenceWatcher, startTaskCompletionLoop } from './network-host.js';
+import { setupHostListeners, setupPresenceWatcher, startTaskCompletionLoop, applyOfflineProgress } from './network-host.js';
 import { handleTwitchChat } from './host-chat.js';
 
 // Simulation of a JWT Secret (In a real app, this is server-side only)
@@ -41,6 +41,9 @@ export class NetworkManager {
             setupPresenceWatcher(this);
             // Initial load of Twitch users for current DB context
             this.refreshPlayerList();
+
+            // New: apply offline catch-up for any in-progress tasks before starting live loop
+            await applyOfflineProgress(this);
 
             // Start background loop to complete finished tasks
             startTaskCompletionLoop(this);
