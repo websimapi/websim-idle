@@ -1,26 +1,9 @@
 import { SKILLS } from './skills.js';
 import { setupHostUI } from './ui-host.js';
+import { renderSkillsList, showSkillDetails, findSkillByTaskId, findSkillByName } from './ui-skills.js';
+import { renderInventory } from './ui-inventory.js';
 
 const ONE_HOUR_MS = 60 * 60 * 1000; // matches server-side energy duration
-
-// Friendly names for inventory items
-const ITEM_NAMES = {
-    log_oak: 'Oak Logs',
-    log_willow: 'Willow Logs',
-    log_maple: 'Maple Logs',
-    fish_shrimp: 'Shrimp',
-    fish_trout: 'Trout',
-    fish_shark: 'Shark',
-    scrap_metal: 'Scrap Metal',
-    torn_cloth: 'Torn Cloth',
-    bottle_caps: 'Bottle Caps',
-    ancient_scrap: 'Ancient Scrap',
-    old_gears: 'Old Gears',
-    mysterious_orb: 'Mysterious Orb',
-    circuit_board: 'Circuit Board',
-    power_core: 'Power Core',
-    broken_chip: 'Broken Chip'
-};
 
 export class UIManager {
     constructor(networkManager, isHost = false) {
@@ -73,7 +56,7 @@ export class UIManager {
         }
 
         this.initListeners();
-        this.renderSkillsList();
+        renderSkillsList(this);
         this.updateAuthUI();
     }
 
@@ -94,10 +77,10 @@ export class UIManager {
         if (connectBtn) {
             connectBtn.addEventListener('click', () => {
                 const channel = document.getElementById('twitch-channel-input').value;
-                if(channel) {
+                if (channel) {
                     this.network.connectTwitch(channel);
-                    document.getElementById('tmi-status').innerText = "Status: Connected to " + channel;
-                    document.getElementById('tmi-status').style.color = "#4ade80";
+                    document.getElementById('tmi-status').innerText = 'Status: Connected to ' + channel;
+                    document.getElementById('tmi-status').style.color = '#4ade80';
 
                     // After the host connects to a Twitch channel, attempt auto-sync
                     const token = localStorage.getItem('sq_token');
@@ -174,19 +157,22 @@ export class UIManager {
             // Copy to clipboard for convenience (host + client)
             if (navigator.clipboard) {
                 const linkCommand = `!link ${code}`;
-                navigator.clipboard.writeText(linkCommand).then(() => {
-                    if (copyStatusEl) {
-                        copyStatusEl.innerText = 'Copied to Clipboard – Paste in Twitch Chat to link';
-                        clearTimeout(this._copyStatusTimeout);
-                        this._copyStatusTimeout = setTimeout(() => {
+                navigator.clipboard
+                    .writeText(linkCommand)
+                    .then(() => {
+                        if (copyStatusEl) {
+                            copyStatusEl.innerText = 'Copied to Clipboard – Paste in Twitch Chat to link';
+                            clearTimeout(this._copyStatusTimeout);
+                            this._copyStatusTimeout = setTimeout(() => {
+                                copyStatusEl.innerText = '';
+                            }, 4000);
+                        }
+                    })
+                    .catch(() => {
+                        if (copyStatusEl) {
                             copyStatusEl.innerText = '';
-                        }, 4000);
-                    }
-                }).catch(() => {
-                    if (copyStatusEl) {
-                        copyStatusEl.innerText = '';
-                    }
-                });
+                        }
+                    });
             }
         };
 
@@ -238,86 +224,6 @@ export class UIManager {
         }
     }
 
-    renderSkillsList() {
-        this.skillsList.innerHTML = '';
-        Object.values(SKILLS).forEach(skill => {
-            const div = document.createElement('div');
-            div.className = 'skill-item';
-            div.innerHTML = `
-                <img src="${skill.icon}" alt="${skill.name}">
-                <span>${skill.name}</span>
-            `;
-            div.onclick = () => this.showSkillDetails(skill);
-            this.skillsList.appendChild(div);
-        });
-    }
-
-    showSkillDetails(skill) {
-        this.skillDetails.style.display = 'block';
-        document.getElementById('detail-icon').src = skill.icon;
-        document.getElementById('detail-name').innerText = skill.name;
-        document.getElementById('detail-desc').innerText = skill.description;
-
-        const grid = document.getElementById('task-grid');
-        grid.innerHTML = '';
-
-        skill.tasks.forEach(task => {
-            const card = document.createElement('div');
-            card.className = 'task-card';
-
-            const hasEnergy = this.state && this.computeEnergyCount(this.state) > 0;
-            const isBusy = this.state && this.state.activeTask;
-
-            card.innerHTML = `
-                <h4>${task.name}</h4>
-                <p>Time: ${task.duration / 1000}s</p>
-                <p>XP: ${task.xp}</p>
-            `;
-
-            const btn = document.createElement('button');
-            btn.innerText = isBusy ? (this.state.activeTask.taskId === task.id ? "In Progress" : "Busy") : "Start";
-
-            if (isBusy || !hasEnergy) {
-                btn.disabled = true;
-                if (!hasEnergy && !isBusy) btn.innerText = "No Energy";
-            }
-
-            btn.onclick = () => {
-                this.network.startTask(task.id, task.duration);
-            };
-
-            card.appendChild(btn);
-            grid.appendChild(card);
-        });
-    }
-
-    renderInventory(playerData) {
-        if (!this.inventoryList) return;
-        this.inventoryList.innerHTML = '';
-
-        const inv = playerData?.inventory || {};
-        const entries = Object.entries(inv).filter(([, qty]) => qty > 0);
-
-        if (entries.length === 0) {
-            const li = document.createElement('li');
-            li.textContent = 'Empty';
-            this.inventoryList.appendChild(li);
-            return;
-        }
-
-        entries.sort((a, b) => a[0].localeCompare(b[0]));
-
-        entries.forEach(([itemId, qty]) => {
-            const li = document.createElement('li');
-            const name = ITEM_NAMES[itemId] || itemId;
-            li.innerHTML = `
-                <span>${name}</span>
-                <span>${qty}</span>
-            `;
-            this.inventoryList.appendChild(li);
-        });
-    }
-
     updateState(playerData) {
         const prevActiveTask = this.state ? this.state.activeTask : null;
         this.state = playerData;
@@ -345,7 +251,7 @@ export class UIManager {
         const now = Date.now();
         const hasActiveEnergy =
             playerData.activeEnergy &&
-            (now - (playerData.activeEnergy.startTime || 0)) < ONE_HOUR_MS;
+            now - (playerData.activeEnergy.startTime || 0) < ONE_HOUR_MS;
 
         // Update Active Task UI
         if (playerData.activeTask) {
@@ -363,35 +269,29 @@ export class UIManager {
             }
 
             // Update Buttons in current view
-            if(this.skillDetails.style.display !== 'none') {
+            if (this.skillDetails.style.display !== 'none') {
                 // Refresh grid to update disabled states
-                const activeSkill = Object.values(SKILLS).find(s => 
-                    s.tasks.some(t => t.id === playerData.activeTask.taskId)
-                );
-                if (activeSkill) { 
-                    // Optional: auto-switch to active skill view?
-                    // For now, just re-render if visible
-                   const currentTitle = document.getElementById('detail-name').innerText;
-                   const skillOfCurrentView = Object.values(SKILLS).find(s => s.name === currentTitle);
-                   if(skillOfCurrentView) this.showSkillDetails(skillOfCurrentView);
+                const activeSkill = findSkillByTaskId(playerData.activeTask.taskId);
+                if (activeSkill) {
+                    const currentTitle = document.getElementById('detail-name').innerText;
+                    const skillOfCurrentView = findSkillByName(currentTitle);
+                    if (skillOfCurrentView) showSkillDetails(this, skillOfCurrentView);
                 }
             }
-
         } else {
             // If we just finished a task but still have active energy and are about to auto-restart,
             // keep the task header visible and don't reset the bar to avoid flicker.
-            const shouldKeepVisible =
-                hasActiveEnergy && prevActiveTask && !playerData.activeTask;
+            const shouldKeepVisible = hasActiveEnergy && prevActiveTask && !playerData.activeTask;
 
             if (!shouldKeepVisible) {
                 this.activeTaskContainer.style.display = 'none';
                 this.stopProgressLoop();
             }
 
-             // Refresh grid to re-enable buttons
-             const currentTitle = document.getElementById('detail-name').innerText;
-             const skillOfCurrentView = Object.values(SKILLS).find(s => s.name === currentTitle);
-             if(skillOfCurrentView) this.showSkillDetails(skillOfCurrentView);
+            // Refresh grid to re-enable buttons
+            const currentTitle = document.getElementById('detail-name').innerText;
+            const skillOfCurrentView = findSkillByName(currentTitle);
+            if (skillOfCurrentView) showSkillDetails(this, skillOfCurrentView);
         }
 
         // Auto-restart last task while energy cell is active
@@ -402,7 +302,7 @@ export class UIManager {
             if (!duration) {
                 // Fallback: look up duration from SKILLS if missing on legacy data
                 for (const skill of Object.values(SKILLS)) {
-                    const t = skill.tasks.find(t => t.id === taskId);
+                    const t = skill.tasks.find((t) => t.id === taskId);
                     if (t) {
                         duration = t.duration;
                         break;
@@ -416,7 +316,7 @@ export class UIManager {
         }
 
         // Update inventory panel
-        this.renderInventory(playerData);
+        renderInventory(this.inventoryList, playerData);
     }
 
     startProgressLoop(taskData) {
@@ -424,12 +324,15 @@ export class UIManager {
 
         // Find Task Info
         let taskDef = null;
-        for(const s of Object.values(SKILLS)) {
-            const t = s.tasks.find(t => t.id === taskData.taskId);
-            if(t) { taskDef = t; break; }
+        for (const s of Object.values(SKILLS)) {
+            const t = s.tasks.find((t) => t.id === taskData.taskId);
+            if (t) {
+                taskDef = t;
+                break;
+            }
         }
 
-        if(!taskDef) return;
+        if (!taskDef) return;
 
         document.getElementById('task-label').innerText = taskDef.name;
         const fill = document.getElementById('task-progress');
@@ -464,7 +367,7 @@ export class UIManager {
             const now = Date.now();
             const elapsed = now - activeEnergy.startTime;
             // Bar should be full when energy is fresh and drain toward empty as it expires
-            let remainingPct = 100 - ((elapsed / ONE_HOUR_MS) * 100);
+            let remainingPct = 100 - (elapsed / ONE_HOUR_MS) * 100;
             if (remainingPct < 0) remainingPct = 0;
             if (remainingPct > 100) remainingPct = 100;
             this.energyBarFill.style.width = `${remainingPct}%`;
