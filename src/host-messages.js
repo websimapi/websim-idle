@@ -29,6 +29,10 @@ export function installHostMessageHandler(networkManager) {
             if (networkManager.onLinkSuccess && data.playerData) networkManager.onLinkSuccess(data.playerData);
             return;
         } else if (data.type === 'sync_data' || data.type === 'state_update' || data.type === 'energy_update') {
+            if (data.type === 'sync_data' && networkManager.onSyncData && data.playerData) {
+                networkManager.onSyncData(data.playerData);
+            }
+
             if (data.playerData && networkManager.onStateUpdate) {
                 networkManager.onStateUpdate(data.playerData);
             }

@@ -139,8 +139,7 @@ export class UIManager {
 
     // Check if we should show offline earnings based on previous local state
     checkOfflineEarnings(newPlayerData) {
-        // Don't show if suppressed or if we are the host (host sees realtime logs)
-        if (this.isHost) return;
+        // Don't show if suppressed
         if (localStorage.getItem('sq_suppress_catchup') === 'true') return;
         
         const rawLast = localStorage.getItem('sq_last_inventory');
@@ -283,7 +282,7 @@ export class UIManager {
         }
 
         // Always update local inventory cache on state update so "offline" means actual time away
-        if (!this.isHost && playerData && playerData.inventory) {
+        if (!this.spectatingId && playerData && playerData.inventory) {
             localStorage.setItem('sq_last_inventory', JSON.stringify(playerData.inventory));
         }
 
