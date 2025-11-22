@@ -124,6 +124,11 @@ export function updateState(uiManager, playerData) {
     // Update skills list (levels and progress bars)
     renderSkillsList(uiManager);
 
+    // New: if a skill is currently selected, keep its detail view in sync
+    if (uiManager.currentSkillId && SKILLS[uiManager.currentSkillId]) {
+        showSkillDetails(uiManager, SKILLS[uiManager.currentSkillId]);
+    }
+
     // Update inventory panel
     renderInventory(uiManager.inventoryList, playerData);
 }
