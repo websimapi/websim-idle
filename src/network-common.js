@@ -24,9 +24,21 @@ export function getAvailableEnergyCount(player) {
     if (!player) return 0;
     const now = Date.now();
     let active = 0;
-    if (player.activeEnergy && (now - (player.activeEnergy.startTime || 0)) < ONE_HOUR_MS) {
-        active = 1;
+
+    if (player.activeEnergy) {
+        // New model: activeEnergy.consumedMs only increases while the player is active
+        if (typeof player.activeEnergy.consumedMs === 'number') {
+            if (player.activeEnergy.consumedMs < ONE_HOUR_MS) {
+                active = 1;
+            }
+        } else if (player.activeEnergy.startTime) {
+            // Legacy fallback for older records
+            if (now - (player.activeEnergy.startTime || 0) < ONE_HOUR_MS) {
+                active = 1;
+            }
+        }
     }
+
     const stored = Array.isArray(player.energy) ? player.energy.length : 0;
     return stored + active;
 }
@@ -35,11 +47,26 @@ export function getAvailableEnergyCount(player) {
 export async function normalizeActiveEnergy(player) {
     if (!player || !player.activeEnergy) return false;
     const now = Date.now();
-    if ((now - (player.activeEnergy.startTime || 0)) >= ONE_HOUR_MS) {
+
+    let expired = false;
+
+    if (typeof player.activeEnergy.consumedMs === 'number') {
+        if (player.activeEnergy.consumedMs >= ONE_HOUR_MS) {
+            expired = true;
+        }
+    } else if (player.activeEnergy.startTime) {
+        // Legacy behavior for old records
+        if (now - (player.activeEnergy.startTime || 0) >= ONE_HOUR_MS) {
+            expired = true;
+        }
+    }
+
+    if (expired) {
         appendHostLog(`Active energy expired for ${player.username}.`);
         player.activeEnergy = null;
         await savePlayer(player.twitchId, player);
         return true;
     }
+
     return false;
 }

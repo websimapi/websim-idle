@@ -114,7 +114,10 @@ export function createNewPlayer(username, twitchId) {
         energy: [], // Array of timestamps (stored/unactivated energy)
         lastChatTime: 0,
         activeTask: null, // { taskId, startTime, duration }
-        activeEnergy: null, // { startTime }
-        linkedWebsimId: null
+        activeEnergy: null, // { startTime } or { consumedMs }
+        linkedWebsimId: null,
+        // New: persisted stop/start idle state
+        pausedTask: null,   // { taskId, duration } when user is in Idle ~ TASK mode
+        manualStop: false   // true if user manually stopped, preventing auto-restart
     };
 }

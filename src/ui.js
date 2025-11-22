@@ -10,9 +10,12 @@ export class UIManager {
         this.network = networkManager;
         this.state = null;
         this.activeTaskInterval = null;
-        this.energyBarInterval = null;
         this.isHost = isHost;
-        this.currentEnergyStartTime = null; // track current active energy cell
+        this.currentEnergyStartTime = null; // legacy tracker, no longer used for timing
+        // Local mirrors of persisted state for convenience
+        this._manualStop = false; // mirrors playerData.manualStop
+        this._lastTask = null;    // mirrors playerData.pausedTask or activeTask
+        this._isIdle = false;     // derived from playerData.pausedTask
 
         // Elements
         this.skillsList = document.getElementById('skills-list');
@@ -21,6 +24,7 @@ export class UIManager {
         this.activeTaskContainer = document.getElementById('active-task-container');
         this.energyCount = document.getElementById('energy-count');
         this.energyBarFill = document.getElementById('energy-cell-bar');
+        this.energyBarBg = document.getElementById('energy-cell-bar-bg');
         this.usernameDisplay = document.getElementById('username');
         this.userAvatar = document.getElementById('user-avatar');
         this.linkAccountBtn = document.getElementById('link-account-btn');
@@ -65,11 +69,31 @@ export class UIManager {
         if (!playerData) return 0;
         const now = Date.now();
         let active = 0;
-        if (playerData.activeEnergy && (now - (playerData.activeEnergy.startTime || 0)) < ONE_HOUR_MS) {
-            active = 1;
+
+        if (playerData.activeEnergy) {
+            if (typeof playerData.activeEnergy.consumedMs === 'number') {
+                if (playerData.activeEnergy.consumedMs < ONE_HOUR_MS) {
+                    active = 1;
+                }
+            } else if (playerData.activeEnergy.startTime) {
+                if (now - (playerData.activeEnergy.startTime || 0) < ONE_HOUR_MS) {
+                    active = 1;
+                }
+            }
         }
+
         const stored = Array.isArray(playerData.energy) ? playerData.energy.length : 0;
         return stored + active;
+    }
+
+    // Helper: get task definition by ID
+    getTaskDefById(taskId) {
+        if (!taskId) return null;
+        for (const skill of Object.values(SKILLS)) {
+            const t = skill.tasks.find((t) => t.id === taskId);
+            if (t) return t;
+        }
+        return null;
     }
 
     initListeners() {
@@ -92,6 +116,47 @@ export class UIManager {
         }
 
         document.getElementById('stop-btn').addEventListener('click', () => {
+            const stopBtn = document.getElementById('stop-btn');
+            const labelEl = document.getElementById('task-label');
+            const progressEl = document.getElementById('task-progress');
+
+            // If we are currently in idle mode for a previous task, clicking acts as "Start"
+            if (this._isIdle && this.state && this.state.pausedTask) {
+                const paused = this.state.pausedTask;
+                const taskDef = this.getTaskDefById(paused.taskId);
+                const duration = paused.duration || taskDef?.duration;
+
+                if (duration && paused.taskId) {
+                    // UI hint immediately; authoritative state will come from host
+                    if (stopBtn) stopBtn.innerText = 'STOP';
+                    if (labelEl && taskDef) labelEl.innerText = taskDef.name;
+                    if (progressEl) progressEl.style.width = '0%';
+
+                    this.network.startTask(paused.taskId, duration);
+                }
+                return;
+            }
+
+            // Normal behavior: going from active to idle; host will persist pausedTask/manualStop
+            if (this.state && this.state.activeTask) {
+                const currentTask = this.state.activeTask;
+                const taskDef = this.getTaskDefById(currentTask.taskId);
+                const taskName = taskDef ? taskDef.name : currentTask.taskId || 'Task';
+
+                if (labelEl) {
+                    labelEl.innerText = `Idle ~ ${taskName}`;
+                }
+                if (progressEl) {
+                    progressEl.style.width = '0%';
+                }
+                if (stopBtn) {
+                    stopBtn.innerText = 'Start';
+                }
+
+                // Stop the local progress animation immediately
+                this.stopProgressLoop();
+            }
+
             this.network.stopTask();
         });
 
@@ -228,6 +293,11 @@ export class UIManager {
         const prevActiveTask = this.state ? this.state.activeTask : null;
         this.state = playerData;
 
+        // Mirror persisted stop/start info into local helpers
+        this._manualStop = !!playerData.manualStop;
+        this._isIdle = !!playerData.pausedTask;
+        this._lastTask = playerData.pausedTask || playerData.activeTask || this._lastTask;
+
         // Update User Info
         if (this.usernameDisplay && playerData.username) {
             this.usernameDisplay.innerText = playerData.username;
@@ -237,25 +307,99 @@ export class UIManager {
         const energyCount = this.computeEnergyCount(playerData);
         this.energyCount.innerText = `${energyCount}/12`;
 
-        // Update energy cell drain bar WITHOUT restarting it unnecessarily
-        const newEnergyStartTime = playerData.activeEnergy?.startTime || null;
-        if (newEnergyStartTime && newEnergyStartTime !== this.currentEnergyStartTime) {
-            this.currentEnergyStartTime = newEnergyStartTime;
-            this.startEnergyBar(playerData.activeEnergy);
-        } else if (!newEnergyStartTime && this.currentEnergyStartTime !== null) {
-            this.currentEnergyStartTime = null;
-            this.stopEnergyBar();
-        }
-
         // Determine if we have an active energy cell (used for auto-restart + UI behavior)
         const now = Date.now();
         const hasActiveEnergy =
             playerData.activeEnergy &&
-            now - (playerData.activeEnergy.startTime || 0) < ONE_HOUR_MS;
+            (
+                typeof playerData.activeEnergy.consumedMs === 'number'
+                    ? playerData.activeEnergy.consumedMs < ONE_HOUR_MS
+                    : now - (playerData.activeEnergy.startTime || 0) < ONE_HOUR_MS
+            );
+
+        // New: detect if we are about to auto-restart the previous task
+        const willAutoRestart =
+            hasActiveEnergy &&
+            prevActiveTask &&
+            !playerData.activeTask &&
+            !this._manualStop;
+
+        // Update energy cell drain bar (percent + visual state)
+        if (this.energyBarFill && this.energyBarBg) {
+            const ae = playerData.activeEnergy;
+            if (ae && hasActiveEnergy) {
+                let consumedMs;
+
+                if (typeof ae.consumedMs === 'number') {
+                    consumedMs = ae.consumedMs;
+                } else if (ae.startTime && playerData.activeTask) {
+                    // Legacy approximation if we still have an old-style startTime
+                    consumedMs = Math.max(0, Math.min(ONE_HOUR_MS, now - (ae.startTime || 0)));
+                } else {
+                    consumedMs = 0;
+                }
+
+                let remainingPct = 100 - (consumedMs / ONE_HOUR_MS) * 100;
+                if (remainingPct < 0) remainingPct = 0;
+                if (remainingPct > 100) remainingPct = 100;
+                this.energyBarFill.style.width = `${remainingPct}%`;
+
+                // Treat the bar as "draining" while a task is running OR
+                // during the brief auto-restart window to avoid a visual freeze.
+                const isDraining = !!(hasActiveEnergy && (playerData.activeTask || willAutoRestart));
+
+                // Toggle classes for visual state
+                this.energyBarBg.classList.toggle('draining', isDraining);
+                this.energyBarBg.classList.toggle('idle', !isDraining);
+                this.energyBarFill.classList.toggle('draining', isDraining);
+                this.energyBarFill.classList.toggle('idle', !isDraining);
+            } else {
+                // No active energy
+                this.energyBarFill.style.width = '0%';
+                this.energyBarBg.classList.remove('draining', 'idle');
+                this.energyBarFill.classList.remove('draining', 'idle');
+            }
+        }
+
+        // Auto-restart last task while energy cell is active (only when we didn't manually stop)
+        if (hasActiveEnergy && prevActiveTask && !playerData.activeTask && !this._manualStop) {
+            const taskId = prevActiveTask.taskId;
+            let duration = prevActiveTask.duration;
+
+            if (!duration) {
+                // Fallback: look up duration from SKILLS if missing on legacy data
+                for (const skill of Object.values(SKILLS)) {
+                    const t = skill.tasks.find((t) => t.id === taskId);
+                    if (t) {
+                        duration = t.duration;
+                        break;
+                    }
+                }
+            }
+
+            if (taskId && duration) {
+                // Start the next iteration immediately and keep UI visible;
+                // we'll get a fresh state_update for the new task.
+                this.network.startTask(taskId, duration);
+                return;
+            }
+        } else if (!playerData.activeTask && !hasActiveEnergy) {
+            // If there is no active task and no active energy, clear any manual-stop suppression
+            this._manualStop = false;
+            this._isIdle = false;
+        }
 
         // Update Active Task UI
+        const shouldShowTaskHeader = !!(playerData.activeTask || hasActiveEnergy || prevActiveTask);
+        this.activeTaskContainer.style.display = shouldShowTaskHeader ? 'flex' : 'none';
+
+        const stopBtn = document.getElementById('stop-btn');
+
         if (playerData.activeTask) {
-            this.activeTaskContainer.style.display = 'flex';
+            // Track the current task as the last task
+            this._lastTask = { ...playerData.activeTask };
+            this._isIdle = false;
+            if (stopBtn) stopBtn.innerText = 'STOP';
 
             // Only restart the progress loop if the task actually changed
             const taskChanged =
@@ -279,39 +423,24 @@ export class UIManager {
                 }
             }
         } else {
-            // If we just finished a task but still have active energy and are about to auto-restart,
-            // keep the task header visible and don't reset the bar to avoid flicker.
-            const shouldKeepVisible = hasActiveEnergy && prevActiveTask && !playerData.activeTask;
-
-            if (!shouldKeepVisible) {
-                this.activeTaskContainer.style.display = 'none';
+            // No active task: if we also have no active energy, fully reset UI;
+            // otherwise keep the header visible and the bar frozen.
+            if (!hasActiveEnergy) {
                 this.stopProgressLoop();
-            }
 
-            // Refresh grid to re-enable buttons
-            const currentTitle = document.getElementById('detail-name').innerText;
-            const skillOfCurrentView = findSkillByName(currentTitle);
-            if (skillOfCurrentView) showSkillDetails(this, skillOfCurrentView);
-        }
-
-        // Auto-restart last task while energy cell is active
-        if (hasActiveEnergy && prevActiveTask && !playerData.activeTask) {
-            const taskId = prevActiveTask.taskId;
-            let duration = prevActiveTask.duration;
-
-            if (!duration) {
-                // Fallback: look up duration from SKILLS if missing on legacy data
-                for (const skill of Object.values(SKILLS)) {
-                    const t = skill.tasks.find((t) => t.id === taskId);
-                    if (t) {
-                        duration = t.duration;
-                        break;
-                    }
+                // Refresh grid to re-enable buttons
+                const currentTitle = document.getElementById('detail-name').innerText;
+                const skillOfCurrentView = findSkillByName(currentTitle);
+                if (skillOfCurrentView) showSkillDetails(this, skillOfCurrentView);
+            } else if (this._isIdle && this.state && this.state.pausedTask) {
+                // When idle for a specific task, ensure the header text/button reflect idle state
+                const labelEl = document.getElementById('task-label');
+                const taskDef = this.getTaskDefById(this.state.pausedTask.taskId);
+                const taskName = taskDef ? taskDef.name : this.state.pausedTask.taskId || 'Task';
+                if (labelEl) {
+                    labelEl.innerText = `Idle ~ ${taskName}`;
                 }
-            }
-
-            if (taskId && duration) {
-                this.network.startTask(taskId, duration);
+                if (stopBtn) stopBtn.innerText = 'Start';
             }
         }
 
@@ -356,31 +485,5 @@ export class UIManager {
             this.activeTaskInterval = null;
         }
         document.getElementById('task-progress').style.width = '0%';
-    }
-
-    startEnergyBar(activeEnergy) {
-        if (!this.energyBarFill || !activeEnergy || !activeEnergy.startTime) return;
-
-        this.stopEnergyBar();
-
-        this.energyBarInterval = setInterval(() => {
-            const now = Date.now();
-            const elapsed = now - activeEnergy.startTime;
-            // Bar should be full when energy is fresh and drain toward empty as it expires
-            let remainingPct = 100 - (elapsed / ONE_HOUR_MS) * 100;
-            if (remainingPct < 0) remainingPct = 0;
-            if (remainingPct > 100) remainingPct = 100;
-            this.energyBarFill.style.width = `${remainingPct}%`;
-        }, 500);
-    }
-
-    stopEnergyBar() {
-        if (this.energyBarInterval) {
-            clearInterval(this.energyBarInterval);
-            this.energyBarInterval = null;
-        }
-        if (this.energyBarFill) {
-            this.energyBarFill.style.width = '0%';
-        }
     }
 }

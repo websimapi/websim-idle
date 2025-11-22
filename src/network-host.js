@@ -115,9 +115,13 @@ export function setupHostListeners(networkManager) {
                 // Normalize legacy structures
                 if (!Array.isArray(player.energy)) player.energy = [];
                 if (!player.inventory) player.inventory = {};
-                if (player.activeEnergy && !player.activeEnergy.startTime) {
+                if (!player.skills) player.skills = {};
+                if (player.activeEnergy && !player.activeEnergy.startTime && typeof player.activeEnergy.consumedMs !== 'number') {
                     player.activeEnergy = null;
                 }
+                // Normalize new persisted stop/start fields
+                if (typeof player.manualStop !== 'boolean') player.manualStop = false;
+                if (player.pausedTask && !player.pausedTask.taskId) player.pausedTask = null;
 
                 // Clear expired active energy if needed
                 await normalizeActiveEnergy(player);
@@ -131,13 +135,16 @@ export function setupHostListeners(networkManager) {
                     // If no active energy cell, activate one by consuming stored energy
                     const hasActiveEnergy =
                         player.activeEnergy &&
-                        (now - (player.activeEnergy.startTime || 0)) < ONE_HOUR_MS;
+                        (typeof player.activeEnergy.consumedMs === 'number'
+                            ? player.activeEnergy.consumedMs < ONE_HOUR_MS
+                            : true);
 
                     if (!hasActiveEnergy) {
                         if (player.energy.length > 0) {
                             player.energy.shift(); // consume one stored energy
-                            player.activeEnergy = { startTime: now };
-                            appendHostLog(`Energy cell activated for ${player.username} (expires in 1h).`);
+                            // New energy model: track consumedMs; it only increases while active
+                            player.activeEnergy = { consumedMs: 0 };
+                            appendHostLog(`Energy cell activated for ${player.username} (1h of active time).`);
                         } else {
                             // This should not happen due to totalAvailable > 0, but guard anyway
                             appendHostLog(
@@ -154,6 +161,10 @@ export function setupHostListeners(networkManager) {
                         startTime: now,
                         duration: data.duration
                     };
+
+                    // Clear any paused/idle state when starting a new task
+                    player.pausedTask = null;
+                    player.manualStop = false;
 
                     await savePlayer(player.twitchId, player);
                     appendHostLog(`Task "${data.taskId}" started for ${player.username}.`);
@@ -175,8 +186,20 @@ export function setupHostListeners(networkManager) {
         } else if (data.type === 'stop_task') {
             const player = await networkManager.validateToken(data.token);
             if (player) {
-                appendHostLog(`Task "${player.activeTask?.taskId || 'unknown'}" stopped for ${player.username}.`);
+                const stoppedTaskId = player.activeTask?.taskId || 'unknown';
+                appendHostLog(`Task "${stoppedTaskId}" stopped for ${player.username}.`);
+
+                // Persist paused/idle state so all peers see "Idle ~ TASKNAME"
+                if (player.activeTask) {
+                    player.pausedTask = {
+                        taskId: player.activeTask.taskId,
+                        duration: player.activeTask.duration
+                    };
+                }
+                // Stopping task puts user into idle; energy drain is handled by the background loop
                 player.activeTask = null;
+                player.manualStop = true;
+
                 await savePlayer(player.twitchId, player);
                 room.send({
                     type: 'state_update',
@@ -254,13 +277,39 @@ export function startTaskCompletionLoop(networkManager) {
                 if (!Array.isArray(player.energy)) player.energy = [];
                 if (!player.inventory) player.inventory = {};
                 if (!player.skills) player.skills = {};
-                if (player.activeEnergy && !player.activeEnergy.startTime) {
+                if (player.activeEnergy && !player.activeEnergy.startTime && typeof player.activeEnergy.consumedMs !== 'number') {
                     player.activeEnergy = null;
                 }
+                // Normalize new persisted stop/start fields
+                if (typeof player.manualStop !== 'boolean') player.manualStop = false;
+                if (player.pausedTask && !player.pausedTask.taskId) player.pausedTask = null;
 
-                // Handle energy expiry
+                // Handle energy expiry and drain only while active
                 if (player.activeEnergy) {
-                    const expired = (now - (player.activeEnergy.startTime || 0)) >= ONE_HOUR_MS;
+                    // New model: activeEnergy.consumedMs only increases while a task is active
+                    if (typeof player.activeEnergy.consumedMs !== 'number') {
+                        // Legacy fallback from old startTime model
+                        if (player.activeEnergy.startTime) {
+                            player.activeEnergy.consumedMs = Math.min(
+                                ONE_HOUR_MS,
+                                now - (player.activeEnergy.startTime || 0)
+                            );
+                        } else {
+                            player.activeEnergy.consumedMs = 0;
+                        }
+                    }
+
+                    if (player.activeTask) {
+                        // Drain 1s of energy per loop while active
+                        player.activeEnergy.consumedMs = Math.min(
+                            ONE_HOUR_MS,
+                            (player.activeEnergy.consumedMs || 0) + 1000
+                        );
+                    }
+
+                    const consumed = player.activeEnergy.consumedMs || 0;
+                    const expired = consumed >= ONE_HOUR_MS;
+
                     if (expired) {
                         appendHostLog(`Background: active energy expired for ${player.username}.`);
                         player.activeEnergy = null;
@@ -268,9 +317,9 @@ export function startTaskCompletionLoop(networkManager) {
                         // If the player is still doing a task and has stored energy, auto-activate the next cell
                         if (player.activeTask && player.energy.length > 0) {
                             player.energy.shift(); // consume next stored energy
-                            player.activeEnergy = { startTime: now };
+                            player.activeEnergy = { consumedMs: 0 };
                             appendHostLog(
-                                `Background: new energy cell auto-activated for ${player.username} (expires in 1h).`
+                                `Background: new energy cell auto-activated for ${player.username} (1h of active time).`
                             );
                         }
                     }
@@ -339,6 +388,9 @@ export function startTaskCompletionLoop(networkManager) {
 
                     // Clear active task
                     player.activeTask = null;
+                    // Auto-completed tasks should not leave a paused/idle state
+                    player.pausedTask = null;
+                    player.manualStop = false;
                 }
 
                 // Persist any changes (task completion or energy expiry)
