@@ -342,6 +342,7 @@ main {
     display: flex;
     flex-grow: 1;
     overflow: hidden;
+    min-height: 0; /* allow main to shrink so the host console stays visible */
 }
 
 /* Sidebar */
@@ -372,6 +373,54 @@ main {
 
 .skill-item img { width: 32px; height: 32px; }
 
+/* New skill text + level layout */
+.skill-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.skill-name-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.skill-name {
+    font-size: 0.9rem;
+}
+
+/* Level label to the right of the skill name */
+.skill-level-label {
+    font-size: 0.75rem;
+    color: var(--primary);
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+/* Progression bar below the skill label */
+.skill-xp-bar {
+    position: relative;
+    width: 100%;
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+    overflow: hidden;
+}
+
+.skill-xp-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--primary));
+    transition: width 0.25s ease-out;
+}
+
+
 /* Content Area */
 .content-area {
     flex-grow: 1;
@@ -397,16 +446,69 @@ main {
 }
 
 .inventory-list {
+    /* Turn the inventory container into a grid of item slots */
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+    gap: 4px;
     list-style: none;
     padding-left: 0;
-    font-size: 0.85rem;
+    margin: 0;
 }
 
-.inventory-list li {
+/* Individual item slot */
+.inventory-item {
+    position: relative;
+    width: 56px;
+    height: 56px;
+    background: #111319;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
     display: flex;
-    justify-content: space-between;
-    padding: 4px 0;
-    border-bottom: 1px solid rgba(255,255,255,0.03);
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+/* Icon image */
+.inventory-item img {
+    width: 80%;
+    height: 80%;
+    object-fit: contain;
+    image-rendering: pixelated;
+}
+
+/* Quantity badge in bottom-right */
+.inventory-qty {
+    position: absolute;
+    bottom: 2px;
+    right: 4px;
+    font-size: 0.7rem;
+    font-family: monospace;
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.8);
+    color: #f9fafb;
+}
+
+/* Clean hover tooltip for inventory item names */
+.inventory-item::after {
+    content: none;
+}
+
+.inventory-item::before {
+    content: none;
+}
+
+/* Empty-state tile */
+.inventory-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    padding: 6px 0;
+    border-radius: 6px;
+    border: 1px dashed rgba(255, 255, 255, 0.06);
+    background: rgba(0, 0, 0, 0.2);
 }
 
 /* Auth Overlay */
@@ -513,6 +615,8 @@ main {
     color: var(--text-main);
     display: flex;
     flex-direction: column;
+    flex: 0 0 130px;       /* fix console height in the flex column */
+    overflow: hidden;      /* prevent console itself from overflowing */
 }
 
 .host-console-header {
@@ -527,4 +631,10 @@ main {
 .host-data-controls {
     display: flex;
     gap: 6px;
+}
+
+/* New: scrollable log inside fixed-height console */
+#host-console-log {
+    flex: 1;
+    overflow-y: auto;
 }

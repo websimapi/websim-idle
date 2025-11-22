@@ -1,5 +1,62 @@
 import { savePlayer } from './db.js';
 import { appendHostLog, ONE_HOUR_MS, getAvailableEnergyCount, normalizeActiveEnergy } from './network-common.js';
+import { SKILLS } from './skills.js';
+
+// XP scaling parameters for skills (mirrors UI)
+const XP_BASE = 50;
+const XP_ALPHA = 1.75;
+const XP_BETA = 0.02;
+
+// XP needed for a single level (not cumulative)
+function xpForLevel(level) {
+    if (level <= 0) return 0;
+    return XP_BASE * Math.pow(level, XP_ALPHA) * (1 + level * XP_BETA);
+}
+
+// Given total accumulated XP, compute level (host-side)
+function getLevelInfo(totalXp) {
+    let level = 1;
+    let xpRemaining = totalXp || 0;
+
+    while (true) {
+        const req = xpForLevel(level);
+        if (xpRemaining >= req) {
+            xpRemaining -= req;
+            level++;
+        } else {
+            break;
+        }
+    }
+
+    const nextReq = xpForLevel(level) || 1;
+    const progress = Math.max(0, Math.min(1, xpRemaining / nextReq));
+
+    return {
+        level,
+        progress,
+        currentXpInLevel: xpRemaining,
+        xpForNextLevel: nextReq
+    };
+}
+
+// Sum total XP for a given skill from completion records (host-side)
+function computeSkillXp(playerData, skillId) {
+    if (!playerData || !playerData.skills || !playerData.skills[skillId]) return 0;
+    const skillData = playerData.skills[skillId];
+    const tasks = skillData.tasks || {};
+    let total = 0;
+
+    Object.values(tasks).forEach(records => {
+        if (!Array.isArray(records)) return;
+        records.forEach(rec => {
+            if (rec && typeof rec.xp === 'number') {
+                total += rec.xp;
+            }
+        });
+    });
+
+    return total;
+}
 
 // Host-only message handler wiring (extracted from network-host.js)
 export function installHostMessageHandler(networkManager) {
@@ -91,6 +148,36 @@ export function installHostMessageHandler(networkManager) {
 
                 // Clear expired active energy if needed
                 await normalizeActiveEnergy(player);
+
+                // Find skill/task definition for level validation
+                let skillId = null;
+                let taskDef = null;
+                for (const [sid, skill] of Object.entries(SKILLS)) {
+                    const found = skill.tasks.find(t => t.id === data.taskId);
+                    if (found) {
+                        skillId = sid;
+                        taskDef = found;
+                        break;
+                    }
+                }
+
+                if (!taskDef || !skillId) {
+                    appendHostLog(`Task start denied: unknown taskId "${data.taskId}" from client ${senderId}.`);
+                    return;
+                }
+
+                // Compute player's level for this skill
+                const totalXp = computeSkillXp(player, skillId);
+                const levelInfo = getLevelInfo(totalXp);
+                const requiredLevel = taskDef.level || 1;
+
+                if (levelInfo.level < requiredLevel) {
+                    appendHostLog(
+                        `Task start denied for ${player.username}: level ${levelInfo.level} < required ${requiredLevel} for "${taskDef.name}".`
+                    );
+                    // Optionally could notify client; for now just deny
+                    return;
+                }
 
                 const now = Date.now();
                 const totalAvailable = getAvailableEnergyCount(player);

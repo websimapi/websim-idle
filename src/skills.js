@@ -21,7 +21,7 @@ export const SKILLS = {
             { 
                 id: 'wc_willow', 
                 name: 'Chop Willow', 
-                level: 15, 
+                level: 30, 
                 duration: 8000, 
                 xp: 25,
                 reward: {
@@ -34,7 +34,7 @@ export const SKILLS = {
             { 
                 id: 'wc_maple', 
                 name: 'Chop Maple', 
-                level: 30, 
+                level: 40, 
                 duration: 12000, 
                 xp: 45,
                 reward: {
@@ -70,7 +70,7 @@ export const SKILLS = {
             { 
                 id: 'sc_ruins', 
                 name: 'Explore Ruins', 
-                level: 10, 
+                level: 30, 
                 duration: 10000, 
                 xp: 30,
                 reward: {
@@ -85,7 +85,7 @@ export const SKILLS = {
             { 
                 id: 'sc_tech', 
                 name: 'Salvage Tech', 
-                level: 25, 
+                level: 50, 
                 duration: 20000, 
                 xp: 80,
                 reward: {
@@ -134,7 +134,7 @@ export const SKILLS = {
             { 
                 id: 'fi_shark', 
                 name: 'Harpoon Shark', 
-                level: 50, 
+                level: 70, 
                 duration: 15000, 
                 xp: 100,
                 reward: {

@@ -1,6 +1,6 @@
 import { SKILLS } from './skills.js';
 import { renderInventory } from './ui-inventory.js';
-import { findSkillByTaskId, findSkillByName, showSkillDetails } from './ui-skills.js';
+import { findSkillByTaskId, findSkillByName, showSkillDetails, renderSkillsList } from './ui-skills.js';
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
 
@@ -158,6 +158,9 @@ export function updateState(uiManager, playerData) {
             if (stopBtn) stopBtn.innerText = 'Start';
         }
     }
+
+    // Update skills list (levels and progress bars)
+    renderSkillsList(uiManager);
 
     // Update inventory panel
     renderInventory(uiManager.inventoryList, playerData);
