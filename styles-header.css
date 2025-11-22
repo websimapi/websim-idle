@@ -27,6 +27,7 @@ header {
     padding: 10px;
     border-radius: 8px;
     min-width: 300px;
+    position: relative; /* allow absolute-positioned reward toast */
 }
 
 #task-label {
@@ -71,6 +72,73 @@ header {
     border-radius: 4px;
     cursor: pointer;
     font-weight: bold;
+}
+
+/* Rewards Toast Popup */
+.task-rewards-container {
+    /* height: 24px; */       /* remove fixed height so it doesn't reserve space */
+    /* min-height: 0; */      /* no need when absolutely positioned */
+    display: flex;
+    justify-content: center;
+    pointer-events: none; /* Let clicks pass through if overlapping (though it pushes layout) */
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    transform: translateY(-2px); /* slightly higher than previous position */
+}
+
+.reward-toast-row {
+    display: flex;
+    gap: 8px;
+    /* margin-top: 2px; */ /* no longer needed since we position via transform */
+    animation: reward-pop-fade 2.5s forwards ease-out;
+}
+
+.reward-item-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(17, 19, 25, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 0.75rem;
+    color: var(--text-main);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    white-space: nowrap;
+}
+
+.reward-item-pill .qty {
+    color: #4ade80;
+    font-weight: bold;
+    font-family: monospace;
+}
+
+.reward-item-pill img {
+    width: 18px;
+    height: 18px;
+    image-rendering: pixelated;
+    object-fit: contain;
+}
+
+@keyframes reward-pop-fade {
+    0% {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+    10% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    80% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
 }
 
 /* Header right side: energy + user info + (host) twitch controls */

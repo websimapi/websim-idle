@@ -1,11 +1,32 @@
 import { SKILLS } from './skills.js';
-import { renderInventory } from './ui-inventory.js';
+import { renderInventory, ITEM_ICONS, ITEM_NAMES } from './ui-inventory.js';
 import { findSkillByTaskId, findSkillByName, showSkillDetails, renderSkillsList } from './ui-skills.js';
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
 
 export function updateState(uiManager, playerData) {
     const prevActiveTask = uiManager.state ? uiManager.state.activeTask : null;
+    
+    // Check for inventory changes to spawn reward toast
+    const oldState = uiManager.state;
+    if (oldState && oldState.inventory && playerData.inventory) {
+        const gained = {};
+        let hasGained = false;
+
+        for (const [itemId, qty] of Object.entries(playerData.inventory)) {
+            const oldQty = oldState.inventory[itemId] || 0;
+            const diff = qty - oldQty;
+            if (diff > 0) {
+                gained[itemId] = diff;
+                hasGained = true;
+            }
+        }
+
+        if (hasGained) {
+            showRewardsToast(gained);
+        }
+    }
+
     uiManager.state = playerData;
 
     // Mirror persisted stop/start info into local helpers
@@ -75,7 +96,7 @@ export function updateState(uiManager, playerData) {
     }
 
     // Update Active Task UI
-    const shouldShowTaskHeader = !!(playerData.activeTask || hasActiveEnergy || prevActiveTask);
+    const shouldShowTaskHeader = !!(playerData.activeTask || hasActiveEnergy || prevActiveTask || playerData.pausedTask);
     uiManager.activeTaskContainer.style.display = shouldShowTaskHeader ? 'flex' : 'none';
 
     const stopBtn = document.getElementById('stop-btn');
@@ -131,4 +152,48 @@ export function updateState(uiManager, playerData) {
 
     // Update inventory panel
     renderInventory(uiManager.inventoryList, playerData);
+}
+
+function showRewardsToast(gainedItems) {
+    const container = document.getElementById('task-rewards-container');
+    if (!container) return;
+
+    // Replace existing toast
+    container.innerHTML = '';
+
+    const row = document.createElement('div');
+    row.className = 'reward-toast-row';
+
+    const entries = Object.entries(gainedItems).sort((a, b) => a[0].localeCompare(b[0]));
+
+    entries.forEach(([itemId, qty]) => {
+        const pill = document.createElement('div');
+        pill.className = 'reward-item-pill';
+
+        const qtySpan = document.createElement('span');
+        qtySpan.className = 'qty';
+        qtySpan.innerText = `+${qty}`;
+
+        const img = document.createElement('img');
+        img.src = ITEM_ICONS[itemId] || 'item_mysterious_orb.png';
+        img.alt = itemId;
+
+        const nameSpan = document.createElement('span');
+        nameSpan.innerText = ITEM_NAMES[itemId] || itemId;
+
+        pill.appendChild(qtySpan);
+        pill.appendChild(img);
+        pill.appendChild(nameSpan);
+
+        row.appendChild(pill);
+    });
+
+    container.appendChild(row);
+
+    // Clean up DOM after animation
+    setTimeout(() => {
+        if (container.contains(row)) {
+            row.remove();
+        }
+    }, 2500);
 }
