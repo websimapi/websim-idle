@@ -195,6 +195,10 @@ export class UIManager {
 
         if (this.userAvatar) {
             this.userAvatar.style.display = hasToken ? 'block' : 'none';
+            // Use a simple default avatar image when linked
+            if (hasToken && !this.userAvatar.src) {
+                this.userAvatar.src = 'logo.png';
+            }
         }
         if (this.usernameDisplay) {
             this.usernameDisplay.style.display = hasToken ? 'inline-block' : 'none';
@@ -268,6 +272,10 @@ export class UIManager {
         // Update User Info
         if (this.usernameDisplay) {
             this.usernameDisplay.innerText = playerData.username;
+        }
+        if (this.userAvatar) {
+            // Ensure there is always a visible avatar once linked
+            this.userAvatar.src = 'logo.png';
         }
 
         // Update Energy
