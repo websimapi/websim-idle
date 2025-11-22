@@ -44,35 +44,30 @@ export async function handleWoodcuttingCommand(networkManager, player, twitchId,
 
 export async function handleScavengingCommand(networkManager, player, twitchId, username, lowerMsg) {
     const scavSkill = SKILLS.scavenging;
-    let taskId = null;
+    
+    // Generic !sc command finds best available task
+    if (lowerMsg === '!sc' || lowerMsg === '!salvage' || lowerMsg === '!sift' || lowerMsg === '!explore') {
+        const totalXp = computeSkillXp(player, scavSkill.id);
+        const levelInfo = getLevelInfo(totalXp);
+        const playerLevel = levelInfo.level;
 
-    if (lowerMsg === '!sift') {
-        taskId = 'sc_trash';
-    } else if (lowerMsg === '!explore') {
-        taskId = 'sc_ruins';
-    } else if (lowerMsg === '!salvage') {
-        taskId = 'sc_tech';
-    }
+        // Highest task they meet the level requirement for
+        const candidates = scavSkill.tasks
+            .filter(t => playerLevel >= (t.level || 1))
+            .sort((a, b) => (b.level || 1) - (a.level || 1));
+        
+        const targetTask = candidates[0] || null;
 
-    const task = scavSkill.tasks.find(t => t.id === taskId);
+        if (!targetTask) {
+             appendHostLog(`${lowerMsg} from ${username} failed: no eligible scavenging task for level ${playerLevel}.`);
+             return;
+        }
 
-    if (!task) {
-        appendHostLog(`${lowerMsg} from ${username} failed: task definition missing (${taskId}).`);
+        await ensureActiveEnergyAndStartTask(networkManager, player, twitchId, username, targetTask, lowerMsg);
         return;
     }
 
-    const totalXp = computeSkillXp(player, scavSkill.id);
-    const levelInfo = getLevelInfo(totalXp);
-    const playerLevel = levelInfo.level;
-
-    if (playerLevel < (task.level || 1)) {
-        appendHostLog(
-            `${lowerMsg} from ${username} denied: level ${playerLevel} < required ${task.level} for \\\"${task.name}\\\".`
-        );
-        return;
-    }
-
-    await ensureActiveEnergyAndStartTask(networkManager, player, twitchId, username, task, lowerMsg);
+    // (Legacy explicit command handling removed since !sc is now the main driver and handles everything dynamically)
 }
 
 export async function handleFishingCommand(networkManager, player, twitchId, username, lowerMsg) {
