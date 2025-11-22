@@ -80,7 +80,7 @@ export const ITEM_ICONS = {
     mysterious_orb: 'item_mysterious_orb.png',
     circuit_board: 'item_circuit_board.png',
     power_core: 'item_power_core.png',
-    broken_chip: 'broken_chip.png',
+    broken_chip: 'item_broken_chip.png',
     drone_parts: 'item_drone_parts.png',
     mech_plating: 'item_mech_plating.png',
     lab_components: 'item_lab_components.png',
@@ -90,25 +90,22 @@ export const ITEM_ICONS = {
     star_tech: 'item_star_tech.png'
 };
 
-export function renderInventory(inventoryListEl, playerData) {
-    if (!inventoryListEl) return;
-    inventoryListEl.innerHTML = '';
-
-    const inv = playerData?.inventory || {};
-    const entries = Object.entries(inv).filter(([, qty]) => qty > 0);
+// Shared helper to render a grid of items (itemId -> quantity)
+export function renderItemGrid(containerEl, itemsMap) {
+    if (!containerEl) return;
+    containerEl.innerHTML = '';
+    
+    const entries = Object.entries(itemsMap || {}).filter(([, qty]) => qty > 0);
 
     if (entries.length === 0) {
         const emptyDiv = document.createElement('div');
         emptyDiv.className = 'inventory-empty';
-        emptyDiv.textContent = 'Empty';
-        inventoryListEl.appendChild(emptyDiv);
+        emptyDiv.textContent = 'Nothing collected';
+        containerEl.appendChild(emptyDiv);
         return;
     }
 
-    // Ensure grid styling is applied
-    inventoryListEl.classList.add('inventory-list');
-
-    // Sort items alphabetically by id for consistent layout
+    // Sort items alphabetically
     entries.sort((a, b) => a[0].localeCompare(b[0]));
 
     entries.forEach(([itemId, qty]) => {
@@ -116,7 +113,6 @@ export function renderInventory(inventoryListEl, playerData) {
         slot.className = 'inventory-item';
 
         const displayName = ITEM_NAMES[itemId] || itemId;
-        // Attach the name for accessibility and native hover tooltip
         slot.dataset.name = displayName;
         slot.setAttribute('aria-label', displayName);
         slot.title = displayName;
@@ -128,7 +124,6 @@ export function renderInventory(inventoryListEl, playerData) {
             img.alt = displayName;
             slot.appendChild(img);
         } else {
-            // Fallback: show first letter if no icon found
             const span = document.createElement('span');
             span.textContent = displayName.charAt(0).toUpperCase();
             slot.appendChild(span);
@@ -139,6 +134,16 @@ export function renderInventory(inventoryListEl, playerData) {
         qtyBadge.textContent = qty;
         slot.appendChild(qtyBadge);
 
-        inventoryListEl.appendChild(slot);
+        containerEl.appendChild(slot);
     });
+}
+
+export function renderInventory(inventoryListEl, playerData) {
+    if (!inventoryListEl) return;
+    
+    // Use shared renderer
+    renderItemGrid(inventoryListEl, playerData?.inventory || {});
+
+    // Add specific inventory-list class if missing (handled by CSS usually but good for safety)
+    inventoryListEl.classList.add('inventory-list');
 }

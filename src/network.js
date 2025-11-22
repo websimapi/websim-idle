@@ -172,6 +172,20 @@ export class NetworkManager {
                     if (this.onLinkSuccess) this.onLinkSuccess(data.playerData);
                     break;
                 case 'sync_data':
+                    // Check for offline progress before updating state (Client only)
+                    if (this.onStateUpdate && data.playerData) {
+                        // Assuming uiManager is hooked to onStateUpdate, we might need a specific hook
+                        // But simpler: NetworkManager doesn't know about UI methods directly except via callbacks.
+                        // We'll add a dedicated callback or just let the UI handle it in onStateUpdate logic?
+                        // Better: Add onSyncData callback
+                        if (this.onSyncData) {
+                            this.onSyncData(data.playerData);
+                        }
+                        
+                        // Proceed with standard update
+                        this.onStateUpdate(data.playerData);
+                    }
+                    break;
                 case 'state_update':
                 case 'energy_update':
                     if (data.energy) {

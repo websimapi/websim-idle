@@ -98,7 +98,12 @@ export function initListeners(uiManager) {
             e.stopPropagation();
             // De-Link for host or client: inform host, then clear token and reset UI
             uiManager.network.requestDelink();
+            
+            // Clear all local persistence
             localStorage.removeItem('sq_token');
+            localStorage.removeItem('sq_suppress_catchup');
+            localStorage.removeItem('sq_last_inventory');
+
             if (uiManager.authOverlay) {
                 uiManager.authOverlay.style.display = 'none';
             }
@@ -158,6 +163,8 @@ export function initListeners(uiManager) {
         if (uiManager.authOverlay) {
             uiManager.authOverlay.style.display = 'none';
         }
+        // Also clear suppression logic on token expiry
+        localStorage.removeItem('sq_suppress_catchup');
         uiManager.updateAuthUI();
     };
 

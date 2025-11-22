@@ -17,6 +17,11 @@ async function init() {
     const network = new NetworkManager(room, isHost, currentUser);
     const ui = new UIManager(network, isHost);
 
+    // Hook up specific Sync callback for offline progress check
+    network.onSyncData = (playerData) => {
+        ui.checkOfflineEarnings(playerData);
+    };
+
     // Setup Host Specific UI
     if (isHost) {
         document.getElementById('host-controls').style.display = 'block';

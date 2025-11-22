@@ -1,7 +1,7 @@
 import { SKILLS } from './skills.js';
 import { setupHostUI } from './ui-host.js';
 import { renderSkillsList } from './ui-skills.js';
-import { renderInventory } from './ui-inventory.js';
+import { renderInventory, renderItemGrid } from './ui-inventory.js';
 import { initListeners as initListenersImpl } from './ui-init.js';
 import { updateState as updateStateImpl } from './ui-state.js';
 import { startProgressLoop as startProgressLoopImpl, stopProgressLoop as stopProgressLoopImpl } from './ui-progress.js';
@@ -91,6 +91,14 @@ export class UIManager {
         this.clientUserDropdown = document.getElementById('client-user-dropdown');
         this.clientDelinkBtn = document.getElementById('client-delink-btn');
 
+        // Offline Popup Elements
+        this.offlinePopup = document.getElementById('offline-popup');
+        this.offlineCloseBtn = document.getElementById('offline-close-btn');
+        this.offlineCloseX = document.getElementById('offline-close-x');
+        this.offlineSuppressBtn = document.getElementById('offline-suppress-btn');
+        this.offlineLootGrid = document.getElementById('offline-loot-grid');
+        this.offlineSkillInfo = document.getElementById('offline-skill-info');
+
         // Preload woodcutting and scavenging region scenes to avoid flash-on-load when switching
         preloadWoodcuttingScenes();
         preloadScavengingScenes();
@@ -108,8 +116,91 @@ export class UIManager {
         }
 
         this.initListeners();
+        this.initOfflinePopupListeners(); // Attach offline popup listeners
         renderSkillsList(this);
         this.updateAuthUI();
+    }
+
+    initOfflinePopupListeners() {
+        const closePopup = () => {
+            if (this.offlinePopup) this.offlinePopup.style.display = 'none';
+        };
+
+        if (this.offlineCloseBtn) this.offlineCloseBtn.onclick = closePopup;
+        if (this.offlineCloseX) this.offlineCloseX.onclick = closePopup;
+
+        if (this.offlineSuppressBtn) {
+            this.offlineSuppressBtn.onclick = () => {
+                localStorage.setItem('sq_suppress_catchup', 'true');
+                closePopup();
+            };
+        }
+    }
+
+    // Check if we should show offline earnings based on previous local state
+    checkOfflineEarnings(newPlayerData) {
+        // Don't show if suppressed or if we are the host (host sees realtime logs)
+        if (this.isHost) return;
+        if (localStorage.getItem('sq_suppress_catchup') === 'true') return;
+        
+        const rawLast = localStorage.getItem('sq_last_inventory');
+        if (!rawLast) {
+            // First time load or no history, just save current and return
+            if (newPlayerData && newPlayerData.inventory) {
+                localStorage.setItem('sq_last_inventory', JSON.stringify(newPlayerData.inventory));
+            }
+            return;
+        }
+
+        let lastInventory = {};
+        try {
+            lastInventory = JSON.parse(rawLast);
+        } catch (e) {
+            lastInventory = {};
+        }
+
+        const currentInventory = newPlayerData.inventory || {};
+        const diff = {};
+        let hasDiff = false;
+
+        // Calculate items gained
+        for (const [itemId, qty] of Object.entries(currentInventory)) {
+            const oldQty = lastInventory[itemId] || 0;
+            const gained = qty - oldQty;
+            if (gained > 0) {
+                diff[itemId] = gained;
+                hasDiff = true;
+            }
+        }
+
+        if (hasDiff) {
+            this.showOfflinePopup(diff, newPlayerData);
+        }
+
+        // Update local snapshot
+        localStorage.setItem('sq_last_inventory', JSON.stringify(currentInventory));
+    }
+
+    showOfflinePopup(earnings, playerData) {
+        if (!this.offlinePopup) return;
+
+        // Render items
+        renderItemGrid(this.offlineLootGrid, earnings);
+
+        // Show active skill text
+        if (this.offlineSkillInfo) {
+            let text = 'Automated Tasks';
+            if (playerData.activeTask) {
+                const task = this.getTaskDefById(playerData.activeTask.taskId);
+                text = task ? `Currently: ${task.name}` : text;
+            } else if (playerData.pausedTask) {
+                const task = this.getTaskDefById(playerData.pausedTask.taskId);
+                text = task ? `Paused: ${task.name}` : 'Idle';
+            }
+            this.offlineSkillInfo.innerText = text;
+        }
+
+        this.offlinePopup.style.display = 'flex';
     }
 
     // Helper: compute available energy from player state
@@ -189,6 +280,11 @@ export class UIManager {
         } else {
             // If not spectating, verify this is meant for us (should be handled by network layer mostly, 
             // but double check if we get a random object)
+        }
+
+        // Always update local inventory cache on state update so "offline" means actual time away
+        if (!this.isHost && playerData && playerData.inventory) {
+            localStorage.setItem('sq_last_inventory', JSON.stringify(playerData.inventory));
         }
 
         updateStateImpl(this, playerData);

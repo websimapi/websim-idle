@@ -143,6 +143,30 @@
             </aside>
         </main>
 
+        <!-- Offline Catchup Popup -->
+        <div id="offline-popup" class="overlay" style="display:none;">
+            <div class="card offline-card">
+                <div class="offline-header">
+                    <h3>Welcome Back!</h3>
+                    <button id="offline-close-x" class="close-x-btn">×</button>
+                </div>
+                <p class="offline-subtitle">While you were away, you collected:</p>
+                
+                <div id="offline-skill-info" class="offline-skill-info">
+                    <!-- e.g. "Woodcutting - Chopping Oak" -->
+                </div>
+
+                <div id="offline-loot-grid" class="inventory-list">
+                    <!-- Reuses inventory grid styles -->
+                </div>
+
+                <div class="offline-footer">
+                    <button id="offline-suppress-btn" class="text-btn">Don't show again this login</button>
+                    <button id="offline-close-btn" class="primary-btn small-primary-btn">Awesome</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Host Console (Host only) -->
         <div id="host-console-container" class="host-console" style="display:none;">
             <div class="host-console-header">
