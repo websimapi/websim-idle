@@ -164,6 +164,14 @@ header {
     z-index: 200;
 }
 
+/* Drop-up behavior for host user menu inside the console */
+.host-user-menu .dropdown-panel {
+    top: auto;
+    bottom: 110%;
+    right: 0;
+    z-index: 300;
+}
+
 .dropdown-section {
     margin-bottom: 10px;
     border-bottom: 1px solid var(--border);
@@ -848,7 +856,7 @@ main {
     display: flex;
     flex-direction: column;
     flex: 0 0 130px;       /* fix console height in the flex column */
-    overflow: hidden;      /* prevent console itself from overflowing */
+    overflow: visible;      /* allow dropdown to escape console bounds */
 }
 
 .host-console-header {
