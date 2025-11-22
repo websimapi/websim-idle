@@ -86,14 +86,14 @@ export function setupHostUI(uiManager) {
         exportDataBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
             try {
-                const players = await network.exportChannelData();
-                const blob = new Blob([JSON.stringify(players, null, 2)], {
+                const exportPayload = await network.exportChannelData();
+                const blob = new Blob([JSON.stringify(exportPayload, null, 2)], {
                     type: 'application/json'
                 });
 
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
-                const channel = localStorage.getItem('sq_host_channel') || 'channel';
+                const channel = exportPayload?.channel || localStorage.getItem('sq_host_channel') || 'channel';
                 const date = new Date().toISOString().replace(/[:.]/g, '-');
                 a.href = url;
                 a.download = `streamquest_${channel}_players_${date}.json`;
@@ -130,13 +130,23 @@ export function setupHostUI(uiManager) {
                 const text = await file.text();
                 const parsed = JSON.parse(text);
 
-                if (!Array.isArray(parsed)) {
-                    alert('Invalid import file: expected an array of players.');
+                let players = [];
+                let importChannel = null;
+
+                if (Array.isArray(parsed)) {
+                    // Legacy format: plain array of players
+                    players = parsed;
+                } else if (parsed && Array.isArray(parsed.players)) {
+                    // New format: { channel, players: [...] }
+                    players = parsed.players;
+                    importChannel = parsed.channel || null;
+                } else {
+                    alert('Invalid import file: expected an array of players or an object with { channel, players }.');
                     importDataInput.value = '';
                     return;
                 }
 
-                await network.importChannelData(parsed, replaceAllPlayers);
+                await network.importChannelData({ players, channel: importChannel }, replaceAllPlayers);
                 alert('Import complete. Player data has been replaced for this channel.');
             } catch (err) {
                 console.error('Import failed', err);

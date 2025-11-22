@@ -131,17 +131,72 @@ export class NetworkManager {
     async exportChannelData() {
         if (!this.isHost) return [];
         const players = await getAllPlayers();
-        appendHostLog(`Exported ${players.length} players for current channel.`);
-        return players;
+        const channel = localStorage.getItem('sq_host_channel') || null;
+        appendHostLog(
+            `Exported ${players.length} players for current channel${channel ? ` "${channel}"` : ''}.`
+        );
+        return { channel, players };
     }
 
-    async importChannelData(playersArray, replaceAllPlayersFn) {
+    async importChannelData(importPayload, replaceAllPlayersFn) {
         if (!this.isHost) return;
         if (typeof replaceAllPlayersFn !== 'function') return;
 
+        const playersArray = Array.isArray(importPayload)
+            ? importPayload
+            : importPayload?.players || [];
+        const importChannel = Array.isArray(importPayload)
+            ? null
+            : importPayload?.channel || null;
+
+        // If the import specifies a channel, switch DB context and remember it
+        if (importChannel) {
+            setDbChannel(importChannel);
+            localStorage.setItem('sq_host_channel', importChannel);
+            appendHostLog(`Channel context set from import: "${importChannel}".`);
+
+            // NEW: update the host Twitch channel input field to reflect imported channel
+            const channelInput = document.getElementById('twitch-channel-input');
+            if (channelInput) {
+                channelInput.value = importChannel;
+            }
+        }
+
         await replaceAllPlayersFn(playersArray || []);
-        appendHostLog(`Imported ${playersArray?.length || 0} players for current channel (overwrote existing data).`);
+        appendHostLog(
+            `Imported ${playersArray?.length || 0} players for current channel${
+                importChannel ? ` "${importChannel}"` : ''
+            } (overwrote existing data).`
+        );
         await this.refreshPlayerList();
+
+        // Broadcast updates to connected clients and local UI
+        const players = playersArray || [];
+        for (const player of players) {
+            // 1. Notify Linked Remote Clients
+            if (player.linkedWebsimId && player.linkedWebsimId !== this.room.clientId) {
+                this.room.send({
+                    type: 'state_update',
+                    targetId: player.linkedWebsimId,
+                    playerData: player
+                });
+            }
+
+            // 2. Update Local Client (if Host is playing as this user)
+            if (player.linkedWebsimId === this.room.clientId) {
+                if (this.onStateUpdate) {
+                    this.onStateUpdate(player);
+                }
+            }
+
+            // 3. Update Host Spectator View (if currently inspecting this user)
+            window.dispatchEvent(new CustomEvent('sq:player_update', { detail: player }));
+        }
+
+        // After import, auto-connect to the channel specified in the file (if any)
+        if (importChannel) {
+            this.connectTwitch(importChannel);
+        }
     }
 
     async refreshPlayerList() {
