@@ -1,5 +1,5 @@
 import { NetworkManager } from './network.js';
-import { UIManager } from './ui.js';
+import { UIManager, preloadGameAssets } from './ui.js';
 
 async function init() {
     const project = await window.websim.getCurrentProject();
@@ -12,6 +12,15 @@ async function init() {
     await room.initialize();
 
     console.log(`Initializing Game. Role: ${isHost ? 'HOST' : 'CLIENT'}`);
+
+    // preload all UI, scene, and item assets before showing the app
+    try {
+        console.log('[Loader] Starting asset preload...');
+        await preloadGameAssets();
+        console.log('[Loader] Asset preload complete.');
+    } catch (e) {
+        console.warn('[Loader] Asset preload encountered an error, continuing anyway.', e);
+    }
 
     // Pass user info to network manager
     const network = new NetworkManager(room, isHost, currentUser);
@@ -58,6 +67,18 @@ async function init() {
                 toggleBtn.textContent = 'Chat';
             }
         }
+    }
+
+    // fade out and remove the loading screen once everything is ready
+    const loadingScreen = document.getElementById('loading-screen');
+    if (loadingScreen) {
+        loadingScreen.style.opacity = '0';
+        loadingScreen.style.visibility = 'hidden';
+        setTimeout(() => {
+            if (loadingScreen && loadingScreen.parentNode) {
+                loadingScreen.parentNode.removeChild(loadingScreen);
+            }
+        }, 500); // matches CSS transition duration
     }
 }
 

@@ -1,59 +1,74 @@
 import { SKILLS } from './skills.js';
 import { setupHostUI } from './ui-host.js';
 import { renderSkillsList } from './ui-skills.js';
-import { renderInventory, renderItemGrid } from './ui-inventory.js';
+import { renderInventory, renderItemGrid, ITEM_ICONS } from './ui-inventory.js';
 import { initListeners as initListenersImpl } from './ui-init.js';
 import { updateState as updateStateImpl } from './ui-state.js';
 import { startProgressLoop as startProgressLoopImpl, stopProgressLoop as stopProgressLoopImpl } from './ui-progress.js';
 
 const ONE_HOUR_MS = 60 * 60 * 1000; // matches server-side energy duration
 
-// Preload woodcutting scene images so they are ready when switching tabs/skills
-function preloadWoodcuttingScenes() {
-    const scenePaths = [
-        'scene_wood_beginner.png',
-        'scene_wood_intermediate.png',
-        'scene_wood_advanced.png',
-        'scene_wood_expert.png',
-        'scene_wood_legendary.png'
-    ];
+// Asset Preloader
+const UI_ASSETS = [
+    'logo.png',
+    'energy_icon.png',
+    'user_default_pfp.png',
+    'woodcutting_icon.png',
+    'scavenging_icon.png',
+    'fishing_icon.png'
+];
 
-    scenePaths.forEach(src => {
-        const img = new Image();
-        img.src = src;
+const SCENE_ASSETS = [
+    'scene_wood_beginner.png',
+    'scene_wood_intermediate.png',
+    'scene_wood_advanced.png',
+    'scene_wood_expert.png',
+    'scene_wood_legendary.png',
+    'scene_scav_beginner.png',
+    'scene_scav_intermediate.png',
+    'scene_scav_advanced.png',
+    'scene_scav_expert.png',
+    'scene_scav_legendary.png',
+    'scene_fish_beginner.png',
+    'scene_fish_intermediate.png',
+    'scene_fish_advanced.png',
+    'scene_fish_expert.png',
+    'scene_fish_legendary.png'
+];
+
+export async function preloadGameAssets() {
+    const allImages = new Set();
+
+    // 1. UI Assets
+    UI_ASSETS.forEach(src => allImages.add(src));
+
+    // 2. Scene Assets
+    SCENE_ASSETS.forEach(src => allImages.add(src));
+
+    // 3. Item Icons
+    Object.values(ITEM_ICONS).forEach(src => allImages.add(src));
+
+    // 4. Skill Icons
+    Object.values(SKILLS).forEach(skill => {
+        if (skill.icon) allImages.add(skill.icon);
     });
-}
 
-// Preload scavenging scene images so they are ready when switching tabs/skills
-function preloadScavengingScenes() {
-    const scenePaths = [
-        'scene_scav_beginner.png',
-        'scene_scav_intermediate.png',
-        'scene_scav_advanced.png',
-        'scene_scav_expert.png',
-        'scene_scav_legendary.png'
-    ];
+    console.log(`[Loader] Preloading ${allImages.size} assets...`);
 
-    scenePaths.forEach(src => {
-        const img = new Image();
-        img.src = src;
+    const promises = Array.from(allImages).map(src => {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.src = src;
+            img.onload = () => resolve(src);
+            img.onerror = () => {
+                console.warn('Failed to load asset:', src);
+                resolve(src); // Resolve anyway to not block app
+            };
+        });
     });
-}
 
-// New: preload fishing scene images for tiered fishing regions
-function preloadFishingScenes() {
-    const scenePaths = [
-        'scene_fish_beginner.png',
-        'scene_fish_intermediate.png',
-        'scene_fish_advanced.png',
-        'scene_fish_expert.png',
-        'scene_fish_legendary.png'
-    ];
-
-    scenePaths.forEach(src => {
-        const img = new Image();
-        img.src = src;
-    });
+    await Promise.all(promises);
+    console.log(`[Loader] All assets loaded.`);
 }
 
 export class UIManager {
@@ -129,11 +144,8 @@ export class UIManager {
         this.chatLog = document.getElementById('host-console-log');
         this.hostConsoleContainer = document.getElementById('host-console-container');
 
-        // Preload woodcutting and scavenging region scenes to avoid flash-on-load when switching
-        preloadWoodcuttingScenes();
-        preloadScavengingScenes();
-        // Also preload fishing regions for smooth tier switching
-        preloadFishingScenes();
+        // Preloads are now handled by main.js via preloadGameAssets() before this class initializes or concurrently
+        // so explicit preloading calls here are removed to avoid double work.
 
         // Ensure default PFP is used for all users
         if (this.userAvatar) {
