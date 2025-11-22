@@ -69,6 +69,13 @@ export class NetworkManager {
         localStorage.setItem('sq_host_channel', channelName);
         appendHostLog(`Connecting to Twitch channel "${channelName}"...`);
 
+        // After switching channel context, attempt to auto-sync host's linked account via stored token
+        const storedToken = localStorage.getItem('sq_token');
+        if (storedToken) {
+            appendHostLog(`Found stored JWT token for host; sending sync_request for channel "${channelName}".`);
+            this.syncWithToken(storedToken);
+        }
+
         if (this.tmiClient) this.tmiClient.disconnect();
 
         // tmi is global from the script tag fallback if import fails, or import map
