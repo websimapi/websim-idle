@@ -4,6 +4,42 @@ import { getLevelInfo, computeSkillXp } from './xp.js';
 import { appendHostLog } from './network-common.js';
 import { ensureActiveEnergyAndStartTask } from './host-chat-utils.js';
 
+export async function handleMiningCommand(networkManager, player, twitchId, username, lowerMsg) {
+    const parts = lowerMsg.split(/\s+/);
+    const arg = (parts[1] || '').trim();
+
+    const mineSkill = SKILLS.mining;
+    const totalXp = computeSkillXp(player, mineSkill.id);
+    const levelInfo = getLevelInfo(totalXp);
+    const playerLevel = levelInfo.level;
+
+    let targetTask = null;
+
+    if (!arg) {
+        // Highest task they meet the level requirement for
+        const candidates = mineSkill.tasks
+            .filter(t => playerLevel >= (t.level || 1))
+            .sort((a, b) => (b.level || 1) - (a.level || 1));
+        targetTask = candidates[0] || null;
+    } else {
+        // Fuzzy search for task ID or Name
+        targetTask = mineSkill.tasks.find(t => 
+            t.id.includes(arg) || 
+            t.name.toLowerCase().includes(arg)
+        );
+    }
+
+    if (!targetTask) {
+        appendHostLog(`!mine from ${username} failed: no eligible mining task found.`);
+    } else if (playerLevel < (targetTask.level || 1)) {
+        appendHostLog(
+            `!mine from ${username} denied: level ${playerLevel} < required ${targetTask.level} for "${targetTask.name}".`
+        );
+    } else {
+        await ensureActiveEnergyAndStartTask(networkManager, player, twitchId, username, targetTask, '!mine');
+    }
+}
+
 export async function handleWoodcuttingCommand(networkManager, player, twitchId, username, lowerMsg) {
     const parts = lowerMsg.split(/\\s+/);
     const arg = (parts[1] || '').trim();

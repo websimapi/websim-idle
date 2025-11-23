@@ -1,6 +1,6 @@
 import { savePlayer, getPlayer, createNewPlayer } from './db.js';
 import { appendHostLog, getAvailableEnergyCount, normalizeActiveEnergy } from './network-common.js';
-import { handleWoodcuttingCommand, handleScavengingCommand, handleFishingCommand } from './host-chat-commands.js';
+import { handleWoodcuttingCommand, handleScavengingCommand, handleFishingCommand, handleMiningCommand } from './host-chat-commands.js';
 
 // Host-only Twitch chat command handling (extracted from NetworkManager.handleTwitchMessage)
 export async function handleTwitchChat(networkManager, tags, message) {
@@ -82,6 +82,8 @@ export async function handleTwitchChat(networkManager, tags, message) {
     } else if (lowerMsg.startsWith('!chop')) {
         // removed inline woodcutting (!chop) command handling (moved to handleWoodcuttingCommand)
         await handleWoodcuttingCommand(networkManager, player, twitchId, username, lowerMsg);
+    } else if (lowerMsg.startsWith('!mine')) {
+        await handleMiningCommand(networkManager, player, twitchId, username, lowerMsg);
     } else if (lowerMsg === '!sift' || lowerMsg === '!explore' || lowerMsg === '!salvage') {
         // removed inline scavenging (!sift/!explore/!salvage) command handling (moved to handleScavengingCommand)
         await handleScavengingCommand(networkManager, player, twitchId, username, lowerMsg);

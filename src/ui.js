@@ -28,6 +28,8 @@ export class UIManager {
         this._isIdle = false;     // derived from playerData.pausedTask
         // New: remember selected tier in woodcutting UI
         this.woodcuttingActiveTier = 'beginner';
+        // New: remember selected tier in mining UI
+        this.miningActiveTier = 'tier1';
         // New: remember selected tier in scavenging UI
         this.scavengingActiveTier = 'beginner';
         // New: remember selected tier in fishing UI

@@ -1,8 +1,122 @@
 import { SKILLS } from './skills.js';
 import { getLevelInfo, computeSkillXp } from './xp.js';
+import { WOODCUTTING_TIERS, MINING_TIERS, SCAVENGING_TIERS, FISHING_TIERS } from './data-tiers.js';
+
+// Helper to create a standard Task Card
+function createTaskCard(uiManager, task, playerLevel, state) {
+    const { computeEnergyCount } = uiManager;
+    
+    const card = document.createElement('div');
+    card.className = 'task-card';
+
+    const hasEnergy = state && computeEnergyCount(state) > 0;
+    const isBusy = state && state.activeTask;
+    const isThisActive = isBusy && state.activeTask.taskId === task.id;
+    const requiredLevel = task.level || 1;
+    const hasRequiredLevel = playerLevel >= requiredLevel;
+
+    card.innerHTML = `
+        <h4>${task.name}</h4>
+        <div class="task-meta-row">
+            <span>${task.duration / 1000}s</span>
+            <span>${task.xp} XP</span>
+            <span>Lv ${requiredLevel}</span>
+        </div>
+    `;
+
+    const btn = document.createElement('button');
+    if (isThisActive) {
+        btn.innerText = 'In Progress';
+    } else if (!hasRequiredLevel) {
+        btn.innerText = `Locked (Lv ${requiredLevel})`;
+    } else {
+        btn.innerText = 'Start';
+    }
+
+    if ((!hasEnergy && !isThisActive) || !hasRequiredLevel) {
+        btn.disabled = true;
+        if (!hasEnergy && hasRequiredLevel && !isThisActive) {
+            btn.innerText = 'No Energy';
+        }
+    }
+
+    btn.onclick = () => {
+        if (isThisActive || !hasRequiredLevel) return;
+
+        if (isBusy && state.activeTask.taskId !== task.id) {
+            uiManager.network.stopTask();
+        }
+
+        uiManager.network.startTask(task.id, task.duration);
+    };
+
+    card.appendChild(btn);
+    return card;
+}
+
+// Helper to render Tier Tabs, Scene, and filtered Task Grid
+function renderTieredSkill(uiManager, skill, tiers, activeTierKey, skillDetails) {
+    const grid = document.getElementById('task-grid');
+    
+    // Calculate level
+    const totalXp = computeSkillXp(uiManager.state, skill.id);
+    const levelInfo = getLevelInfo(totalXp);
+    const playerLevel = levelInfo.level;
+
+    // Filter valid tiers
+    const tiersWithTasks = tiers.map(tier => ({
+        ...tier,
+        tasks: skill.tasks.filter(
+            task => (task.level || 1) >= tier.minLevel && (task.level || 1) <= tier.maxLevel
+        )
+    })).filter(tier => tier.tasks.length > 0);
+
+    if (tiersWithTasks.length === 0) return;
+
+    // Active Tier selection
+    let activeTier = 
+        tiersWithTasks.find(t => t.id === uiManager[activeTierKey]) || 
+        tiersWithTasks[0];
+    
+    // Update manager state
+    uiManager[activeTierKey] = activeTier.id;
+
+    // Render Tabs
+    const tabsBar = document.createElement('div');
+    tabsBar.className = 'tier-tabs';
+
+    tiersWithTasks.forEach(tier => {
+        const tab = document.createElement('button');
+        tab.className = 'tier-tab' + (tier.id === activeTier.id ? ' active' : '');
+        tab.innerText = tier.label;
+        tab.onclick = () => {
+            uiManager[activeTierKey] = tier.id;
+            showSkillDetails(uiManager, skill);
+        };
+        tabsBar.appendChild(tab);
+    });
+
+    // Render Scene
+    const sceneWrapper = document.createElement('div');
+    sceneWrapper.className = 'tier-scene';
+    const sceneImg = document.createElement('img');
+    sceneImg.src = activeTier.scene;
+    sceneImg.alt = `${activeTier.label} region`;
+    sceneWrapper.appendChild(sceneImg);
+
+    // Insert before grid
+    skillDetails.insertBefore(sceneWrapper, grid);
+    skillDetails.insertBefore(tabsBar, sceneWrapper);
+
+    // Render Tasks
+    activeTier.tasks.forEach(task => {
+        const card = createTaskCard(uiManager, task, playerLevel, uiManager.state);
+        grid.appendChild(card);
+    });
+}
 
 export function showSkillDetails(uiManager, skill) {
-    const { skillDetails, state, computeEnergyCount } = uiManager;
+    const { skillDetails, state } = uiManager;
     if (!skillDetails) return;
 
     // Remember which skill is currently being shown so state updates can refresh correctly
@@ -12,11 +126,13 @@ export function showSkillDetails(uiManager, skill) {
 
     // Handle header visibility and content
     const headerEl = skillDetails.querySelector('.skill-header');
-    if (skill.id === 'woodcutting' || skill.id === 'scavenging' || skill.id === 'fishing') {
+    const isTieredSkill = ['woodcutting', 'mining', 'scavenging', 'fishing'].includes(skill.id);
+
+    if (isTieredSkill) {
         // Hide redundant header for tiered, scene-based skills
         if (headerEl) headerEl.style.display = 'none';
     } else {
-        // Show and populate header for non-woodcutting skills
+        // Show and populate header for non-tiered skills
         if (headerEl) {
             headerEl.style.display = 'flex';
             const iconEl = document.getElementById('detail-icon');
@@ -35,456 +151,25 @@ export function showSkillDetails(uiManager, skill) {
     const oldTierEls = skillDetails.querySelectorAll('.tier-tabs, .tier-scene');
     oldTierEls.forEach(el => el.remove());
 
-    // Compute player's current level for this skill
-    const totalXp = computeSkillXp(state, skill.id);
-    const levelInfo = getLevelInfo(totalXp);
-    const playerLevel = levelInfo.level;
-
-    // Special woodcutting UI with tier tabs + scene image
+    // // removed huge if/else blocks for each skill type -> using generic renderTieredSkill
+    
     if (skill.id === 'woodcutting') {
-        const tiers = [
-            {
-                id: 'beginner',
-                label: 'Whispering Sapling Glade',
-                minLevel: 1,
-                maxLevel: 10,
-                scene: 'scene_wood_beginner.png'
-            },
-            {
-                id: 'intermediate',
-                label: 'Maplecrest Ridge',
-                minLevel: 11,
-                maxLevel: 20,
-                scene: 'scene_wood_intermediate.png'
-            },
-            {
-                id: 'advanced',
-                label: 'Elderheart Deepwood',
-                minLevel: 21,
-                maxLevel: 35,
-                scene: 'scene_wood_advanced.png'
-            },
-            {
-                id: 'expert',
-                label: 'Ancient Yew Sanctum',
-                minLevel: 36,
-                maxLevel: 50,
-                scene: 'scene_wood_expert.png'
-            },
-            {
-                id: 'legendary',
-                label: 'Worldroot Canyon',
-                minLevel: 51,
-                maxLevel: 999,
-                scene: 'scene_wood_legendary.png'
-            }
-        ];
-
-        // Only include tiers that actually have tasks
-        const tiersWithTasks = tiers.map(tier => ({
-            ...tier,
-            tasks: skill.tasks.filter(
-                task => (task.level || 1) >= tier.minLevel && (task.level || 1) <= tier.maxLevel
-            )
-        })).filter(tier => tier.tasks.length > 0);
-
-        if (tiersWithTasks.length === 0) {
-            return;
-        }
-
-        // Determine active tier
-        let activeTier = 
-            tiersWithTasks.find(t => t.id === uiManager.woodcuttingActiveTier) || 
-            tiersWithTasks[0];
-        uiManager.woodcuttingActiveTier = activeTier.id;
-
-        // Tabs bar
-        const tabsBar = document.createElement('div');
-        tabsBar.className = 'tier-tabs';
-
-        tiersWithTasks.forEach(tier => {
-            const tab = document.createElement('button');
-            tab.className = 'tier-tab' + (tier.id === activeTier.id ? ' active' : '');
-            tab.innerText = tier.label;
-            tab.onclick = () => {
-                uiManager.woodcuttingActiveTier = tier.id;
-                showSkillDetails(uiManager, skill);
-            };
-            tabsBar.appendChild(tab);
-        });
-
-        // Scene image for active tier
-        const sceneWrapper = document.createElement('div');
-        sceneWrapper.className = 'tier-scene';
-        const sceneImg = document.createElement('img');
-        sceneImg.src = activeTier.scene;
-        sceneImg.alt = `${activeTier.label} region`;
-        sceneWrapper.appendChild(sceneImg);
-
-        // Insert tabs + scene before the grid
-        skillDetails.insertBefore(sceneWrapper, grid);
-        skillDetails.insertBefore(tabsBar, sceneWrapper);
-
-        // Render only tasks for active tier
-        activeTier.tasks.forEach(task => {
-            const card = document.createElement('div');
-            card.className = 'task-card';
-
-            const hasEnergy = state && computeEnergyCount(state) > 0;
-            const isBusy = state && state.activeTask;
-            const isThisActive = isBusy && state.activeTask.taskId === task.id;
-            const requiredLevel = task.level || 1;
-            const hasRequiredLevel = playerLevel >= requiredLevel;
-
-            card.innerHTML = `
-                <h4>${task.name}</h4>
-                <div class="task-meta-row">
-                    <span>${task.duration / 1000}s</span>
-                    <span>${task.xp} XP</span>
-                    <span>Lv ${requiredLevel}</span>
-                </div>
-            `;
-
-            const btn = document.createElement('button');
-            if (isThisActive) {
-                btn.innerText = 'In Progress';
-            } else if (!hasRequiredLevel) {
-                btn.innerText = `Locked (Lv ${requiredLevel})`;
-            } else {
-                btn.innerText = 'Start';
-            }
-
-            if ((!hasEnergy && !isThisActive) || !hasRequiredLevel) {
-                btn.disabled = true;
-                if (!hasEnergy && hasRequiredLevel && !isThisActive) {
-                    btn.innerText = 'No Energy';
-                }
-            }
-
-            btn.onclick = () => {
-                if (isThisActive || !hasRequiredLevel) return;
-
-                if (isBusy && state.activeTask.taskId !== task.id) {
-                    uiManager.network.stopTask();
-                }
-
-                uiManager.network.startTask(task.id, task.duration);
-            };
-
-            card.appendChild(btn);
-            grid.appendChild(card);
-        });
-
-        return;
+        renderTieredSkill(uiManager, skill, WOODCUTTING_TIERS, 'woodcuttingActiveTier', skillDetails);
+    } else if (skill.id === 'mining') {
+        renderTieredSkill(uiManager, skill, MINING_TIERS, 'miningActiveTier', skillDetails);
     } else if (skill.id === 'scavenging') {
-        const tiers = [
-            {
-                id: 'beginner',
-                label: 'Scrap-Strewn Outskirts',
-                minLevel: 1,
-                maxLevel: 10,
-                scene: 'scene_scav_beginner.png'
-            },
-            {
-                id: 'intermediate',
-                label: 'Derelict Workyards',
-                minLevel: 11,
-                maxLevel: 25,
-                scene: 'scene_scav_intermediate.png'
-            },
-            {
-                id: 'advanced',
-                label: 'Collapsed Industrial Quarter',
-                minLevel: 26,
-                maxLevel: 40,
-                scene: 'scene_scav_advanced.png'
-            },
-            {
-                id: 'expert',
-                label: 'Forsaken Tech Complex',
-                minLevel: 41,
-                maxLevel: 60,
-                scene: 'scene_scav_expert.png'
-            },
-            {
-                id: 'legendary',
-                label: 'Starfall Excavation Zone',
-                minLevel: 61,
-                maxLevel: 999,
-                scene: 'scene_scav_legendary.png'
-            }
-        ];
-
-        const tiersWithTasks = tiers.map(tier => ({
-            ...tier,
-            tasks: skill.tasks.filter(
-                task => (task.level || 1) >= tier.minLevel && (task.level || 1) <= tier.maxLevel
-            )
-        })).filter(tier => tier.tasks.length > 0);
-
-        if (tiersWithTasks.length === 0) {
-            return;
-        }
-
-        let activeTier = 
-            tiersWithTasks.find(t => t.id === uiManager.scavengingActiveTier) || 
-            tiersWithTasks[0];
-        uiManager.scavengingActiveTier = activeTier.id;
-
-        const tabsBar = document.createElement('div');
-        tabsBar.className = 'tier-tabs';
-
-        tiersWithTasks.forEach(tier => {
-            const tab = document.createElement('button');
-            tab.className = 'tier-tab' + (tier.id === activeTier.id ? ' active' : '');
-            tab.innerText = tier.label;
-            tab.onclick = () => {
-                uiManager.scavengingActiveTier = tier.id;
-                showSkillDetails(uiManager, skill);
-            };
-            tabsBar.appendChild(tab);
-        });
-
-        const sceneWrapper = document.createElement('div');
-        sceneWrapper.className = 'tier-scene';
-        const sceneImg = document.createElement('img');
-        sceneImg.src = activeTier.scene;
-        sceneImg.alt = `${activeTier.label} region`;
-        sceneWrapper.appendChild(sceneImg);
-
-        skillDetails.insertBefore(sceneWrapper, grid);
-        skillDetails.insertBefore(tabsBar, sceneWrapper);
-
-        activeTier.tasks.forEach(task => {
-            const card = document.createElement('div');
-            card.className = 'task-card';
-
-            const hasEnergy = state && computeEnergyCount(state) > 0;
-            const isBusy = state && state.activeTask;
-            const isThisActive = isBusy && state.activeTask.taskId === task.id;
-            const requiredLevel = task.level || 1;
-            const hasRequiredLevel = playerLevel >= requiredLevel;
-
-            card.innerHTML = `
-                <h4>${task.name}</h4>
-                <div class="task-meta-row">
-                    <span>${task.duration / 1000}s</span>
-                    <span>${task.xp} XP</span>
-                    <span>Lv ${requiredLevel}</span>
-                </div>
-            `;
-
-            const btn = document.createElement('button');
-            if (isThisActive) {
-                btn.innerText = 'In Progress';
-            } else if (!hasRequiredLevel) {
-                btn.innerText = `Locked (Lv ${requiredLevel})`;
-            } else {
-                btn.innerText = 'Start';
-            }
-
-            if ((!hasEnergy && !isThisActive) || !hasRequiredLevel) {
-                btn.disabled = true;
-                if (!hasEnergy && hasRequiredLevel && !isThisActive) {
-                    btn.innerText = 'No Energy';
-                }
-            }
-
-            btn.onclick = () => {
-                if (isThisActive || !hasRequiredLevel) return;
-
-                if (isBusy && state.activeTask.taskId !== task.id) {
-                    uiManager.network.stopTask();
-                }
-
-                uiManager.network.startTask(task.id, task.duration);
-            };
-
-            card.appendChild(btn);
-            grid.appendChild(card);
-        });
-
-        return;
+        renderTieredSkill(uiManager, skill, SCAVENGING_TIERS, 'scavengingActiveTier', skillDetails);
     } else if (skill.id === 'fishing') {
-        const tiers = [
-            {
-                id: 'beginner',
-                label: 'Shallow Tidepools',
-                minLevel: 1,
-                maxLevel: 10,
-                scene: 'scene_fish_beginner.png'
-            },
-            {
-                id: 'intermediate',
-                label: 'River Bend Currents',
-                minLevel: 11,
-                maxLevel: 30,
-                scene: 'scene_fish_intermediate.png'
-            },
-            {
-                id: 'advanced',
-                label: 'Coastal Shelf Waters',
-                minLevel: 31,
-                maxLevel: 50,
-                scene: 'scene_fish_advanced.png'
-            },
-            {
-                id: 'expert',
-                label: 'Open-Sea Bluewater',
-                minLevel: 51,
-                maxLevel: 70,
-                scene: 'scene_fish_expert.png'
-            },
-            {
-                id: 'legendary',
-                label: 'Abyssal Dream Trench',
-                minLevel: 71,
-                maxLevel: 999,
-                scene: 'scene_fish_legendary.png'
-            }
-        ];
+        renderTieredSkill(uiManager, skill, FISHING_TIERS, 'fishingActiveTier', skillDetails);
+    } else {
+        // Default Rendering (non-tiered)
+        const totalXp = computeSkillXp(state, skill.id);
+        const levelInfo = getLevelInfo(totalXp);
+        const playerLevel = levelInfo.level;
 
-        const tiersWithTasks = tiers
-            .map(tier => ({
-                ...tier,
-                tasks: skill.tasks.filter(
-                    task => (task.level || 1) >= tier.minLevel && (task.level || 1) <= tier.maxLevel
-                )
-            }))
-            .filter(tier => tier.tasks.length > 0);
-
-        if (tiersWithTasks.length === 0) {
-            return;
-        }
-
-        let activeTier = 
-            tiersWithTasks.find(t => t.id === uiManager.fishingActiveTier) || 
-            tiersWithTasks[0];
-        uiManager.fishingActiveTier = activeTier.id;
-
-        const tabsBar = document.createElement('div');
-        tabsBar.className = 'tier-tabs';
-
-        tiersWithTasks.forEach(tier => {
-            const tab = document.createElement('button');
-            tab.className = 'tier-tab' + (tier.id === activeTier.id ? ' active' : '');
-            tab.innerText = tier.label;
-            tab.onclick = () => {
-                uiManager.fishingActiveTier = tier.id;
-                showSkillDetails(uiManager, skill);
-            };
-            tabsBar.appendChild(tab);
-        });
-
-        const sceneWrapper = document.createElement('div');
-        sceneWrapper.className = 'tier-scene';
-        const sceneImg = document.createElement('img');
-        sceneImg.src = activeTier.scene;
-        sceneImg.alt = `${activeTier.label} region`;
-        sceneWrapper.appendChild(sceneImg);
-
-        skillDetails.insertBefore(sceneWrapper, grid);
-        skillDetails.insertBefore(tabsBar, sceneWrapper);
-
-        activeTier.tasks.forEach(task => {
-            const card = document.createElement('div');
-            card.className = 'task-card';
-
-            const hasEnergy = state && computeEnergyCount(state) > 0;
-            const isBusy = state && state.activeTask;
-            const isThisActive = isBusy && state.activeTask.taskId === task.id;
-            const requiredLevel = task.level || 1;
-            const hasRequiredLevel = playerLevel >= requiredLevel;
-
-            card.innerHTML = `
-                <h4>${task.name}</h4>
-                <div class="task-meta-row">
-                    <span>${task.duration / 1000}s</span>
-                    <span>${task.xp} XP</span>
-                    <span>Lv ${requiredLevel}</span>
-                </div>
-            `;
-
-            const btn = document.createElement('button');
-            if (isThisActive) {
-                btn.innerText = 'In Progress';
-            } else if (!hasRequiredLevel) {
-                btn.innerText = `Locked (Lv ${requiredLevel})`;
-            } else {
-                btn.innerText = 'Start';
-            }
-
-            if ((!hasEnergy && !isThisActive) || !hasRequiredLevel) {
-                btn.disabled = true;
-                if (!hasEnergy && hasRequiredLevel && !isThisActive) {
-                    btn.innerText = 'No Energy';
-                }
-            }
-
-            btn.onclick = () => {
-                if (isThisActive || !hasRequiredLevel) return;
-
-                if (isBusy && state.activeTask.taskId !== task.id) {
-                    uiManager.network.stopTask();
-                }
-
-                uiManager.network.startTask(task.id, task.duration);
-            };
-
-            card.appendChild(btn);
+        skill.tasks.forEach(task => {
+            const card = createTaskCard(uiManager, task, playerLevel, state);
             grid.appendChild(card);
         });
-
-        return;
     }
-
-    // Default rendering for non-woodcutting skills
-    skill.tasks.forEach(task => {
-        const card = document.createElement('div');
-        card.className = 'task-card';
-
-        const hasEnergy = state && computeEnergyCount(state) > 0;
-        const isBusy = state && state.activeTask;
-        const isThisActive = isBusy && state.activeTask.taskId === task.id;
-        const requiredLevel = task.level || 1;
-        const hasRequiredLevel = playerLevel >= requiredLevel;
-
-        card.innerHTML = `
-                <h4>${task.name}</h4>
-                <div class="task-meta-row">
-                    <span>${task.duration / 1000}s</span>
-                    <span>${task.xp} XP</span>
-                    <span>Lv ${requiredLevel}</span>
-                </div>
-            `;
-
-        const btn = document.createElement('button');
-        if (isThisActive) {
-            btn.innerText = 'In Progress';
-        } else if (!hasRequiredLevel) {
-            btn.innerText = `Locked (Lv ${requiredLevel})`;
-        } else {
-            btn.innerText = 'Start';
-        }
-
-        if ((!hasEnergy && !isThisActive) || !hasRequiredLevel) {
-            btn.disabled = true;
-            if (!hasEnergy && hasRequiredLevel && !isThisActive) {
-                btn.innerText = 'No Energy';
-            }
-        }
-
-        btn.onclick = () => {
-            if (isThisActive || !hasRequiredLevel) return;
-
-            if (isBusy && state.activeTask.taskId !== task.id) {
-                uiManager.network.stopTask();
-            }
-
-            uiManager.network.startTask(task.id, task.duration);
-        };
-
-        card.appendChild(btn);
-        grid.appendChild(card);
-    });
 }

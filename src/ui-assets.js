@@ -6,6 +6,7 @@ const UI_ASSETS = [
     'energy_icon.png',
     'user_default_pfp.png',
     'woodcutting_icon.png',
+    'mining_icon.png',
     'scavenging_icon.png',
     'fishing_icon.png'
 ];
@@ -16,6 +17,11 @@ const SCENE_ASSETS = [
     'scene_wood_advanced.png',
     'scene_wood_expert.png',
     'scene_wood_legendary.png',
+    'scene_mine_tier1.png',
+    'scene_mine_tier2.png',
+    'scene_mine_tier3.png',
+    'scene_mine_tier4.png',
+    'scene_mine_tier5.png',
     'scene_scav_beginner.png',
     'scene_scav_intermediate.png',
     'scene_scav_advanced.png',

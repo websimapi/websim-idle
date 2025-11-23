@@ -3,36 +3,67 @@
 main {
     display: flex;
     flex-grow: 1;
-    overflow-x: hidden;
-    overflow-y: auto; /* single scroll container for middle layout */
+    overflow: hidden; /* Prevent main from scrolling, delegates to children */
     min-height: 0; /* allow main to shrink so the host console stays visible */
 }
 
 /* Sidebar: skills on left */
 .skills-sidebar {
     width: 250px;
+    flex-shrink: 0;
     background: var(--bg-panel);
     border-right: 1px solid var(--border);
     padding: 20px;
-    overflow-y: visible;
+    overflow-y: auto; /* Independent scroll */
+    scrollbar-width: none; /* Hide scrollbar Firefox */
+    -ms-overflow-style: none; /* Hide scrollbar IE/Edge */
+}
+
+.skills-sidebar::-webkit-scrollbar {
+    display: none; /* Hide scrollbar Chrome/Safari/WebSim */
 }
 
 /* Content Area: central pane */
 .content-area {
     flex-grow: 1;
+    min-width: 0;
     position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+}
+
+#skill-details {
+    flex: 1;
     padding: 30px;
-    padding-bottom: 160px; /* extra space so content doesn't hide behind fixed console */
-    overflow-y: visible; /* let main handle scrolling to avoid nested scrollbars */
+    overflow-y: auto; /* Independent scroll for content */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+#skill-details::-webkit-scrollbar {
+    display: none;
+}
+
+.content-area::-webkit-scrollbar {
+    display: none;
 }
 
 /* Inventory Sidebar on the right */
 .inventory-sidebar {
     width: 385px;
+    flex-shrink: 0;
     background: var(--bg-panel);
     border-left: 1px solid var(--border);
     padding: 20px;
-    overflow-y: visible;
+    overflow-y: auto; /* Independent scroll */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.inventory-sidebar::-webkit-scrollbar {
+    display: none;
 }
 
 /* Hide default inventory h2 (tabs are used instead) */
