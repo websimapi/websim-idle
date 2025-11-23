@@ -35,7 +35,11 @@ export function setupHostUI(uiManager) {
     window.addEventListener('sq:player_update', (e) => {
         const p = e.detail;
         if (uiManager.spectatingId === p.twitchId) {
-             uiManager.updateState(p);
+             // When first switching to a user, suppress the initial backlog of rewards,
+             // then show incremental rewards for subsequent updates.
+             const suppressRewards = !uiManager.spectateFirstUpdateSeen;
+             uiManager.spectateFirstUpdateSeen = true;
+             uiManager.updateState(p, { suppressRewards });
         }
     });
 

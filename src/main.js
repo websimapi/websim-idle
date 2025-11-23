@@ -16,7 +16,18 @@ async function init() {
     // preload all UI, scene, and item assets before showing the app
     try {
         console.log('[Loader] Starting asset preload...');
-        await preloadGameAssets();
+        
+        const loadingBar = document.getElementById('loading-progress-bar');
+        const loadingText = document.getElementById('loading-text');
+
+        await preloadGameAssets((loaded, total) => {
+            if (total > 0) {
+                const pct = Math.floor((loaded / total) * 100);
+                if (loadingBar) loadingBar.style.width = `${pct}%`;
+                if (loadingText) loadingText.innerText = `Loading Assets... ${pct}%`;
+            }
+        });
+        
         console.log('[Loader] Asset preload complete.');
     } catch (e) {
         console.warn('[Loader] Asset preload encountered an error, continuing anyway.', e);

@@ -5,71 +5,15 @@ import { renderInventory, renderItemGrid, ITEM_ICONS } from './ui-inventory.js';
 import { initListeners as initListenersImpl } from './ui-init.js';
 import { updateState as updateStateImpl } from './ui-state.js';
 import { startProgressLoop as startProgressLoopImpl, stopProgressLoop as stopProgressLoopImpl } from './ui-progress.js';
+import { preloadGameAssets } from './ui-assets.js';
+import { initChatListeners, appendChatMessage } from './ui-chat.js';
+import { initOfflinePopupListeners, checkOfflineEarnings, showOfflinePopup } from './ui-offline.js';
+import { showPlayerProfile, stopSpectating } from './ui-spectate.js';
 
 const ONE_HOUR_MS = 60 * 60 * 1000; // matches server-side energy duration
 
-// Asset Preloader
-const UI_ASSETS = [
-    'logo.png',
-    'energy_icon.png',
-    'user_default_pfp.png',
-    'woodcutting_icon.png',
-    'scavenging_icon.png',
-    'fishing_icon.png'
-];
-
-const SCENE_ASSETS = [
-    'scene_wood_beginner.png',
-    'scene_wood_intermediate.png',
-    'scene_wood_advanced.png',
-    'scene_wood_expert.png',
-    'scene_wood_legendary.png',
-    'scene_scav_beginner.png',
-    'scene_scav_intermediate.png',
-    'scene_scav_advanced.png',
-    'scene_scav_expert.png',
-    'scene_scav_legendary.png',
-    'scene_fish_beginner.png',
-    'scene_fish_intermediate.png',
-    'scene_fish_advanced.png',
-    'scene_fish_expert.png',
-    'scene_fish_legendary.png'
-];
-
-export async function preloadGameAssets() {
-    const allImages = new Set();
-
-    // 1. UI Assets
-    UI_ASSETS.forEach(src => allImages.add(src));
-
-    // 2. Scene Assets
-    SCENE_ASSETS.forEach(src => allImages.add(src));
-
-    // 3. Item Icons
-    Object.values(ITEM_ICONS).forEach(src => allImages.add(src));
-
-    // 4. Skill Icons
-    Object.values(SKILLS).forEach(skill => {
-        if (skill.icon) allImages.add(skill.icon);
-    });
-
-    console.log(`[Loader] Preloading ${allImages.size} assets...`);
-
-    const promises = Array.from(allImages).map(src => {
-        return new Promise((resolve) => {
-            const img = new Image();
-            img.src = src;
-            img.onload = () => resolve(src);
-            img.onerror = () => {
-                console.warn('Failed to load asset:', src);
-                resolve(src); // Resolve anyway to not block app
-            };
-        });
-    });
-
-    await Promise.all(promises);
-    console.log(`[Loader] All assets loaded.`);
-}
+// Re-export preload so main.js doesn't break
+export { preloadGameAssets };
 
 export class UIManager {
     constructor(networkManager, isHost = false) {
@@ -93,6 +37,8 @@ export class UIManager {
         
         // New: Host spectating mode
         this.spectatingId = null;
+        // New: track whether we've already applied one live update for the currently spectated user
+        this.spectateFirstUpdateSeen = false;
 
         // Elements
         this.skillsList = document.getElementById('skills-list');
@@ -144,9 +90,6 @@ export class UIManager {
         this.chatLog = document.getElementById('host-console-log');
         this.hostConsoleContainer = document.getElementById('host-console-container');
 
-        // Preloads are now handled by main.js via preloadGameAssets() before this class initializes or concurrently
-        // so explicit preloading calls here are removed to avoid double work.
-
         // Ensure default PFP is used for all users
         if (this.userAvatar) {
             this.userAvatar.src = 'user_default_pfp.png';
@@ -173,84 +116,16 @@ export class UIManager {
     }
 
     initOfflinePopupListeners() {
-        const closePopup = () => {
-            if (this.offlinePopup) this.offlinePopup.style.display = 'none';
-        };
-
-        if (this.offlineCloseBtn) this.offlineCloseBtn.onclick = closePopup;
-        if (this.offlineCloseX) this.offlineCloseX.onclick = closePopup;
-
-        if (this.offlineSuppressBtn) {
-            this.offlineSuppressBtn.onclick = () => {
-                localStorage.setItem('sq_suppress_catchup', 'true');
-                closePopup();
-            };
-        }
+        initOfflinePopupListeners(this);
     }
 
     // Check if we should show offline earnings based on previous local state
     checkOfflineEarnings(newPlayerData) {
-        // Don't show if suppressed
-        if (localStorage.getItem('sq_suppress_catchup') === 'true') return;
-        
-        const rawLast = localStorage.getItem('sq_last_inventory');
-        if (!rawLast) {
-            // First time load or no history, just save current and return
-            if (newPlayerData && newPlayerData.inventory) {
-                localStorage.setItem('sq_last_inventory', JSON.stringify(newPlayerData.inventory));
-            }
-            return;
-        }
-
-        let lastInventory = {};
-        try {
-            lastInventory = JSON.parse(rawLast);
-        } catch (e) {
-            lastInventory = {};
-        }
-
-        const currentInventory = newPlayerData.inventory || {};
-        const diff = {};
-        let hasDiff = false;
-
-        // Calculate items gained
-        for (const [itemId, qty] of Object.entries(currentInventory)) {
-            const oldQty = lastInventory[itemId] || 0;
-            const gained = qty - oldQty;
-            if (gained > 0) {
-                diff[itemId] = gained;
-                hasDiff = true;
-            }
-        }
-
-        if (hasDiff) {
-            this.showOfflinePopup(diff, newPlayerData);
-        }
-
-        // Update local snapshot
-        localStorage.setItem('sq_last_inventory', JSON.stringify(currentInventory));
+        checkOfflineEarnings(this, newPlayerData);
     }
 
     showOfflinePopup(earnings, playerData) {
-        if (!this.offlinePopup) return;
-
-        // Render items
-        renderItemGrid(this.offlineLootGrid, earnings);
-
-        // Show active skill text
-        if (this.offlineSkillInfo) {
-            let text = 'Automated Tasks';
-            if (playerData.activeTask) {
-                const task = this.getTaskDefById(playerData.activeTask.taskId);
-                text = task ? `Currently: ${task.name}` : text;
-            } else if (playerData.pausedTask) {
-                const task = this.getTaskDefById(playerData.pausedTask.taskId);
-                text = task ? `Paused: ${task.name}` : 'Idle';
-            }
-            this.offlineSkillInfo.innerText = text;
-        }
-
-        this.offlinePopup.style.display = 'flex';
+        showOfflinePopup(this, earnings, playerData);
     }
 
     // Helper: compute available energy from player state
@@ -321,7 +196,7 @@ export class UIManager {
         }
     }
 
-    updateState(playerData) {
+    updateState(playerData, options = {}) {
         // If spectating, only accept updates for the spectated player
         if (this.spectatingId) {
             if (!playerData || playerData.twitchId !== this.spectatingId) {
@@ -337,7 +212,7 @@ export class UIManager {
             localStorage.setItem('sq_last_inventory', JSON.stringify(playerData.inventory));
         }
 
-        updateStateImpl(this, playerData);
+        updateStateImpl(this, playerData, options);
     }
 
     startProgressLoop(taskData) {
@@ -350,114 +225,19 @@ export class UIManager {
 
     // Host-only helper: inspect another player's profile in the UI
     showPlayerProfile(playerData) {
-        if (!playerData) return;
-        this.spectatingId = playerData.twitchId;
-        this.updateState(playerData);
-        this.updateAuthUI();
-        
-        // Force refresh of the host menu to show "Back" button
-        if (this.isHost && typeof this.refreshHostUserMenu === 'function') {
-            this.refreshHostUserMenu();
-        }
+        showPlayerProfile(this, playerData);
     }
 
     // Host-only helper: return to own view
     stopSpectating() {
-        this.spectatingId = null;
-        const token = localStorage.getItem('sq_token');
-        if (token) {
-            this.network.syncWithToken(token);
-        } else {
-            // Reset to guest
-            this.usernameDisplay.innerText = 'Guest';
-            this.energyCount.innerText = '0/12';
-            this.energyBarFill.style.width = '0%';
-            this.skillsList.innerHTML = '';
-            this.inventoryList.innerHTML = '';
-            this.activeTaskContainer.style.display = 'none';
-            this.updateAuthUI();
-        }
-
-        if (this.isHost && typeof this.refreshHostUserMenu === 'function') {
-            this.refreshHostUserMenu();
-        }
+        stopSpectating(this);
     }
 
     initChatListeners() {
-        if (this.chatInput && this.chatSendBtn) {
-            const sendChat = () => {
-                const text = this.chatInput.value.trim();
-                if (!text) return;
-
-                // Optimistically render own message
-                const username =
-                    (this.state && this.state.username) ||
-                    (this.network.user && (this.network.user.username || this.network.user.name)) ||
-                    'You';
-                this.appendChatMessage({
-                    username,
-                    text,
-                    self: true
-                });
-
-                this.network.sendChatMessage(text);
-                this.chatInput.value = '';
-            };
-
-            this.chatSendBtn.addEventListener('click', sendChat);
-            this.chatInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    sendChat();
-                }
-            });
-        }
-
-        // Receive chat messages from network
-        this.network.onChatMessage = (data) => {
-            // Skip rendering if this message originated from this client;
-            // we already rendered it optimistically.
-            if (this.network.room && data && data.clientId && data.clientId === this.network.room.clientId) {
-                return;
-            }
-
-            const isSelf =
-                this.network.room &&
-                data &&
-                data.clientId &&
-                data.clientId === this.network.room.clientId;
-
-            this.appendChatMessage({
-                username: data.username || 'Player',
-                text: data.text || '',
-                self: !!isSelf
-            });
-        };
+        initChatListeners(this);
     }
 
-    appendChatMessage({ username, text, self }) {
-        if (!this.chatLog || !text) return;
-
-        // Ensure bottom-aligned layout in chat view by inserting a spacer
-        if (this.hostConsoleContainer && this.hostConsoleContainer.classList.contains('chat-view')) {
-            let spacer = this.chatLog.querySelector('.chat-spacer');
-            if (!spacer) {
-                spacer = document.createElement('div');
-                spacer.className = 'chat-spacer';
-                this.chatLog.insertBefore(spacer, this.chatLog.firstChild);
-            }
-        }
-
-        const line = document.createElement('div');
-        line.className = 'chat-line' + (self ? ' self' : '');
-        const userSpan = document.createElement('span');
-        userSpan.className = 'chat-user';
-        userSpan.textContent = `${username}:`;
-        const msgSpan = document.createElement('span');
-        msgSpan.textContent = text;
-        line.appendChild(userSpan);
-        line.appendChild(msgSpan);
-        this.chatLog.appendChild(line);
-        this.chatLog.scrollTop = this.chatLog.scrollHeight;
+    appendChatMessage(args) {
+        appendChatMessage(this, args);
     }
 }

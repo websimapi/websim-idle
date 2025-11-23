@@ -4,12 +4,13 @@ import { findSkillByTaskId, findSkillByName, showSkillDetails, renderSkillsList 
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
 
-export function updateState(uiManager, playerData) {
+export function updateState(uiManager, playerData, options = {}) {
+    const suppressRewards = !!options.suppressRewards;
     const prevActiveTask = uiManager.state ? uiManager.state.activeTask : null;
     
     // Check for inventory changes to spawn reward toast
     const oldState = uiManager.state;
-    if (oldState && oldState.inventory && playerData.inventory) {
+    if (!suppressRewards && oldState && oldState.inventory && playerData.inventory) {
         const gained = {};
         let hasGained = false;
 

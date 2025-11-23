@@ -152,9 +152,25 @@
     text-transform: uppercase;
 }
 
+.loading-progress-container {
+    width: 240px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 15px;
+}
+
+.loading-progress-bar {
+    height: 100%;
+    width: 0%;
+    background: var(--primary);
+    transition: width 0.1s linear;
+    box-shadow: 0 0 10px var(--primary);
+}
+
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
 
 /* Tombstone: overlay/auth/offline moved */
-/* // removed overlay, auth overlay, and offline popup styles from styles.css into styles-overlays.css */
