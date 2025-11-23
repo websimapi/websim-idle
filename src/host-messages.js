@@ -75,6 +75,11 @@ export function installHostMessageHandler(networkManager) {
                     player.linkedWebsimId = senderId;
                     await savePlayer(player.twitchId, player);
                     appendHostLog(`Sync updated link for ${player.username} to WebSim client ${senderId}.`);
+                    
+                    // Refresh host UI to show the updated link status
+                    if (typeof networkManager.refreshPlayerList === 'function') {
+                        networkManager.refreshPlayerList();
+                    }
                 }
 
                 room.send({
@@ -92,6 +97,15 @@ export function installHostMessageHandler(networkManager) {
         } else if (data.type === 'start_task') {
             const player = await networkManager.validateToken(data.token);
             if (player) {
+                // Ensure the player is always linked to the current WebSim client
+                if (player.linkedWebsimId !== senderId) {
+                    player.linkedWebsimId = senderId;
+                    await savePlayer(player.twitchId, player);
+                    appendHostLog(
+                        `start_task relinked ${player.username} to WebSim client ${senderId} based on valid token.`
+                    );
+                }
+
                 // Normalize legacy structures
                 if (!Array.isArray(player.energy)) player.energy = [];
                 if (!player.inventory) player.inventory = {};
@@ -196,6 +210,15 @@ export function installHostMessageHandler(networkManager) {
         } else if (data.type === 'stop_task') {
             const player = await networkManager.validateToken(data.token);
             if (player) {
+                // Ensure the player is always linked to the current WebSim client
+                if (player.linkedWebsimId !== senderId) {
+                    player.linkedWebsimId = senderId;
+                    await savePlayer(player.twitchId, player);
+                    appendHostLog(
+                        `stop_task relinked ${player.username} to WebSim client ${senderId} based on valid token.`
+                    );
+                }
+
                 const stoppedTaskId = player.activeTask?.taskId || 'unknown';
                 appendHostLog(`Task "${stoppedTaskId}" stopped for ${player.username}.`);
 
@@ -227,6 +250,13 @@ export function installHostMessageHandler(networkManager) {
             // A client (or host) is requesting to de-link their Twitch account
             const player = await networkManager.validateToken(data.token);
             if (player) {
+                // Ensure we are clearing the correct link for this WebSim client
+                if (player.linkedWebsimId && player.linkedWebsimId !== senderId) {
+                    appendHostLog(
+                        `client_delink from ${senderId} had mismatched link (${player.linkedWebsimId}); updating then clearing.`
+                    );
+                }
+
                 appendHostLog(`De-link requested for ${player.username}. Clearing linked WebSim client.`);
                 player.linkedWebsimId = null;
                 await savePlayer(player.twitchId, player);

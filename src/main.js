@@ -61,6 +61,13 @@ async function init() {
                 }
             }
         }
+    } else {
+        // Client: if we already have a stored token from a previous link,
+        // automatically sync with the host so we don't appear as "Guest" on reload.
+        const token = localStorage.getItem('sq_token');
+        if (token) {
+            network.syncWithToken(token);
+        }
     }
 
     // Show console/chat pane for all users (host and regular clients)

@@ -25,18 +25,22 @@ export class NetworkManager {
         this.onTokenInvalid = null; // fired when host rejects/expired token
         this.onChatMessage = null; // fired when any in-room chat message is received
 
-        this.initialize();
-    }
-
-    async initialize() {
+        // Ensure DB context is set as early as possible for hosts
         if (this.isHost) {
-            // Restore channel context if available
             const savedChannel = localStorage.getItem('sq_host_channel');
             if (savedChannel) {
                 setDbChannel(savedChannel);
                 appendHostLog(`DB context set for channel "${savedChannel}"`);
             }
+        }
 
+        // Expose an async initialization promise so UI can wait on it
+        this.ready = this.initialize();
+    }
+
+    async initialize() {
+        if (this.isHost) {
+            // Host-side setup (DB context was already set in constructor if a channel was saved)
             console.log("Initializing Host Logic...");
             setupHostListeners(this);
             setupPresenceWatcher(this);

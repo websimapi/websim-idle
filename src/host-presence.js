@@ -28,4 +28,9 @@ export function setupPresenceWatcher(networkManager) {
         }));
         networkManager.onPresenceUpdate(peers);
     }
+
+    // NEW: also refresh player list on initial presence setup so user lists are in sync right away
+    if (typeof networkManager.refreshPlayerList === 'function') {
+        networkManager.refreshPlayerList();
+    }
 }
