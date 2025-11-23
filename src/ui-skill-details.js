@@ -15,14 +15,32 @@ function createTaskCard(uiManager, task, playerLevel, state) {
     const requiredLevel = task.level || 1;
     const hasRequiredLevel = playerLevel >= requiredLevel;
 
-    card.innerHTML = `
-        <h4>${task.name}</h4>
-        <div class="task-meta-row">
-            <span>${task.duration / 1000}s</span>
-            <span>${task.xp} XP</span>
-            <span>Lv ${requiredLevel}</span>
-        </div>
-    `;
+    // Handle Distributed Task Display
+    if (task.isDistributed) {
+        card.classList.add('distributed-task-card');
+        card.innerHTML = `
+            <h4 style="color:var(--accent);">${task.name}</h4>
+            <div class="task-meta-row">
+                <span>Var. Time</span>
+                <span>Var. XP</span>
+                <span style="color:${hasRequiredLevel ? 'var(--accent)' : 'var(--text-dim)'}">
+                    Unlock: Lv ${requiredLevel}
+                </span>
+            </div>
+            <div style="font-size:0.75rem; color:var(--text-dim); margin:4px 0;">
+                ${task.description}
+            </div>
+        `;
+    } else {
+        card.innerHTML = `
+            <h4>${task.name}</h4>
+            <div class="task-meta-row">
+                <span>${task.duration / 1000}s</span>
+                <span>${task.xp} XP</span>
+                <span>Lv ${requiredLevel}</span>
+            </div>
+        `;
+    }
 
     const btn = document.createElement('button');
     if (isThisActive) {
@@ -47,6 +65,73 @@ function createTaskCard(uiManager, task, playerLevel, state) {
             uiManager.network.stopTask();
         }
 
+        // Distributed Gather Logic
+        if (task.isDistributed) {
+            // 1. Find all valid tasks in this tier
+            // We need to look up the skill object to find tasks again, or pass context.
+            // We can use uiManager.currentSkillId to find the skill definition.
+            const skill = SKILLS[uiManager.currentSkillId];
+            if (!skill) return;
+
+            let tierTasks = [];
+            if (task.tierId) {
+                // Determine correct tier set based on skill to avoid ID collisions (e.g. 'beginner' exists in multiple skills)
+                let targetTiers = [];
+                if (skill.id === 'woodcutting') targetTiers = WOODCUTTING_TIERS;
+                else if (skill.id === 'mining') targetTiers = MINING_TIERS;
+                else if (skill.id === 'scavenging') targetTiers = SCAVENGING_TIERS;
+                else if (skill.id === 'fishing') targetTiers = FISHING_TIERS;
+
+                const tierDef = targetTiers.find(t => t.id === task.tierId);
+
+                if (tierDef) {
+                    tierTasks = skill.tasks.filter(t => 
+                        !t.isDistributed && 
+                        (t.level || 1) >= tierDef.minLevel && 
+                        (t.level || 1) <= tierDef.maxLevel
+                    );
+                }
+            }
+
+            if (tierTasks.length === 0) return;
+
+            // 2. Calculate Double Roll Chance
+            // Base 1%, +1% per level above requirement, max 50%
+            const levelDiff = Math.max(0, playerLevel - requiredLevel);
+            let chance = 0.01 + (levelDiff * 0.01);
+            if (chance > 0.50) chance = 0.50;
+
+            // 3. Perform Roll
+            const resolvedIds = [];
+            
+            // Roll 1
+            const task1 = tierTasks[Math.floor(Math.random() * tierTasks.length)];
+            resolvedIds.push(task1.id);
+
+            // Roll 2?
+            const isDouble = Math.random() < chance;
+            let task2 = null;
+            if (isDouble) {
+                task2 = tierTasks[Math.floor(Math.random() * tierTasks.length)];
+                resolvedIds.push(task2.id);
+            }
+
+            // 4. Calculate Duration
+            // "if you roll twice it will take the lowest time for the tasks"
+            let finalDuration = task1.duration;
+            if (task2) {
+                finalDuration = Math.min(task1.duration, task2.duration);
+            }
+
+            // 5. Start Task with Meta
+            uiManager.network.startTask(task.id, finalDuration, {
+                resolvedTaskIds: resolvedIds,
+                isDoubleRoll: isDouble
+            });
+            
+            return;
+        }
+
         uiManager.network.startTask(task.id, task.duration);
     };
 
@@ -67,7 +152,16 @@ function renderTieredSkill(uiManager, skill, tiers, activeTierKey, skillDetails)
     const tiersWithTasks = tiers.map(tier => ({
         ...tier,
         tasks: skill.tasks.filter(
-            task => (task.level || 1) >= tier.minLevel && (task.level || 1) <= tier.maxLevel
+            task => {
+                // Include standard tasks in range (exclude distributed)
+                const inRange =
+                    !task.isDistributed &&
+                    (task.level || 1) >= tier.minLevel &&
+                    (task.level || 1) <= tier.maxLevel;
+                // Include distributed task for this tier
+                const isTierDist = task.isDistributed && task.tierId === tier.id;
+                return inRange || isTierDist;
+            }
         )
     })).filter(tier => tier.tasks.length > 0);
 

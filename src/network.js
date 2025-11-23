@@ -230,48 +230,52 @@ export class NetworkManager {
             // Filter messages meant for me
             if (data.targetId && data.targetId !== this.room.clientId) return;
 
-            switch (data.type) {
-                case 'link_code_generated':
-                    if (this.onLinkCode) this.onLinkCode(data.code);
-                    break;
-                case 'link_success':
-                    localStorage.setItem('sq_token', data.token);
-                    if (this.onLinkSuccess) this.onLinkSuccess(data.playerData);
-                    break;
-                case 'sync_data':
-                    // Check for offline progress before updating state (Client only)
-                    if (this.onStateUpdate && data.playerData) {
-                        // Assuming uiManager is hooked to onStateUpdate, we might need a specific hook
-                        // But simpler: NetworkManager doesn't know about UI methods directly except via callbacks.
-                        // We'll add a dedicated callback or just let the UI handle it in onStateUpdate logic?
-                        // Better: Add onSyncData callback
-                        if (this.onSyncData) {
-                            this.onSyncData(data.playerData);
+            try {
+                switch (data.type) {
+                    case 'link_code_generated':
+                        if (this.onLinkCode) this.onLinkCode(data.code);
+                        break;
+                    case 'link_success':
+                        localStorage.setItem('sq_token', data.token);
+                        if (this.onLinkSuccess) this.onLinkSuccess(data.playerData);
+                        break;
+                    case 'sync_data':
+                        // Check for offline progress before updating state (Client only)
+                        if (this.onStateUpdate && data.playerData) {
+                            // Assuming uiManager is hooked to onStateUpdate, we might need a specific hook
+                            // But simpler: NetworkManager doesn't know about UI methods directly except via callbacks.
+                            // We'll add a dedicated callback or just let the UI handle it in onStateUpdate logic?
+                            // Better: Add onSyncData callback
+                            if (this.onSyncData) {
+                                this.onSyncData(data.playerData);
+                            }
+                            
+                            // Proceed with standard update
+                            this.onStateUpdate(data.playerData);
                         }
-                        
-                        // Proceed with standard update
-                        this.onStateUpdate(data.playerData);
-                    }
-                    break;
-                case 'state_update':
-                case 'energy_update':
-                    if (data.energy) {
-                        // partial update handling if needed
-                    }
-                    if (data.playerData && this.onStateUpdate) {
-                        this.onStateUpdate(data.playerData);
-                    }
-                    break;
-                case 'chat_message':
-                    if (this.onChatMessage) {
-                        this.onChatMessage(data);
-                    }
-                    break;
-                case 'token_invalid':
-                    // Host rejected token (likely expired) – clear it and notify UI
-                    localStorage.removeItem('sq_token');
-                    if (this.onTokenInvalid) this.onTokenInvalid();
-                    break;
+                        break;
+                    case 'state_update':
+                    case 'energy_update':
+                        if (data.energy) {
+                            // partial update handling if needed
+                        }
+                        if (data.playerData && this.onStateUpdate) {
+                            this.onStateUpdate(data.playerData);
+                        }
+                        break;
+                    case 'chat_message':
+                        if (this.onChatMessage) {
+                            this.onChatMessage(data);
+                        }
+                        break;
+                    case 'token_invalid':
+                        // Host rejected token (likely expired) – clear it and notify UI
+                        localStorage.removeItem('sq_token');
+                        if (this.onTokenInvalid) this.onTokenInvalid();
+                        break;
+                }
+            } catch (err) {
+                console.error('Error handling client message', err, data);
             }
         };
     }
@@ -284,12 +288,13 @@ export class NetworkManager {
         this.room.send({ type: 'sync_request', token });
     }
 
-    startTask(taskId, duration) {
+    startTask(taskId, duration, meta = null) {
         const token = localStorage.getItem('sq_token'); 
         this.room.send({ 
             type: 'start_task', 
             taskId, 
             duration,
+            meta,
             token: token 
         });
     }

@@ -67,13 +67,39 @@ export function showOfflinePopup(uiManager, earnings, playerData) {
     // Show active skill text
     if (uiManager.offlineSkillInfo) {
         let text = 'Automated Tasks';
+
+        // Helper to describe a task (handles distributed gather)
+        const describeTask = (taskContainer) => {
+            if (!taskContainer || !taskContainer.taskId) return null;
+            const taskDef = uiManager.getTaskDefById(taskContainer.taskId);
+            if (!taskDef) return null;
+
+            // Distributed gather: show tier name + rolled sub-tasks, if available
+            if (taskDef.isDistributed && taskContainer.meta && Array.isArray(taskContainer.meta.resolvedTaskIds)) {
+                const subTaskNames = taskContainer.meta.resolvedTaskIds
+                    .map((id) => {
+                        const subDef = uiManager.getTaskDefById(id);
+                        return subDef ? subDef.name : id;
+                    })
+                    .filter(Boolean);
+
+                if (subTaskNames.length > 0) {
+                    return `${taskDef.name} (${subTaskNames.join(', ')})`;
+                }
+            }
+
+            // Fallback: regular task name
+            return taskDef.name;
+        };
+
         if (playerData.activeTask) {
-            const task = uiManager.getTaskDefById(playerData.activeTask.taskId);
-            text = task ? `Currently: ${task.name}` : text;
+            const desc = describeTask(playerData.activeTask);
+            text = desc ? `Currently: ${desc}` : text;
         } else if (playerData.pausedTask) {
-            const task = uiManager.getTaskDefById(playerData.pausedTask.taskId);
-            text = task ? `Paused: ${task.name}` : 'Idle';
+            const desc = describeTask(playerData.pausedTask);
+            text = desc ? `Paused: ${desc}` : 'Idle';
         }
+
         uiManager.offlineSkillInfo.innerText = text;
     }
 
