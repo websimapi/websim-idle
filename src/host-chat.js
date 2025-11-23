@@ -50,34 +50,40 @@ export async function handleTwitchChat(networkManager, tags, message) {
     const rawMsg = message.trim();
     const lowerMsg = rawMsg.toLowerCase();
 
-    if (lowerMsg.startsWith('!link ')) {
-        const code = rawMsg.split(' ')[1];
-        appendHostLog(`!link attempt by ${username} with code \"${code}\".`);
-        networkManager.cleanupExpiredCodes();
-        const entry = networkManager.pendingLinks[code];
-        if (entry) {
-            const websimClientId = entry.websimClientId;
+    if (lowerMsg.startsWith('!link')) {
+        // Robust parsing: split by whitespace, take 2nd element, force uppercase to match generated codes
+        const parts = rawMsg.split(/\s+/);
+        const code = (parts[1] || '').toUpperCase().trim();
 
-            // Link them
-            player.linkedWebsimId = websimClientId;
-            await savePlayer(twitchId, player);
+        if (code) {
+            appendHostLog(`!link attempt by ${username} with code "${code}".`);
+            networkManager.cleanupExpiredCodes();
+            const entry = networkManager.pendingLinks[code];
+            
+            if (entry) {
+                const websimClientId = entry.websimClientId;
 
-            // Generate "Token"
-            const token = btoa(JSON.stringify({ twitchId, exp: now + (7 * 24 * 60 * 60 * 1000) }));
+                // Link them
+                player.linkedWebsimId = websimClientId;
+                await savePlayer(twitchId, player);
 
-            // Inform Client
-            room.send({
-                type: 'link_success',
-                targetId: websimClientId,
-                token: token,
-                playerData: player
-            });
+                // Generate "Token"
+                const token = btoa(JSON.stringify({ twitchId, exp: now + (7 * 24 * 60 * 60 * 1000) }));
 
-            delete networkManager.pendingLinks[code];
-            appendHostLog(`Link success: ${username} ↔ WebSim client ${websimClientId}.`);
-            console.log(`Linked ${username} to websim client ${websimClientId}`);
-        } else {
-            appendHostLog(`Link failed for ${username}: code \"${code}\" not found or expired.`);
+                // Inform Client
+                room.send({
+                    type: 'link_success',
+                    targetId: websimClientId,
+                    token: token,
+                    playerData: player
+                });
+
+                delete networkManager.pendingLinks[code];
+                appendHostLog(`Link success: ${username} ↔ WebSim client ${websimClientId}.`);
+                console.log(`Linked ${username} to websim client ${websimClientId}`);
+            } else {
+                appendHostLog(`Link failed for ${username}: code "${code}" not found or expired.`);
+            }
         }
     } else if (lowerMsg.startsWith('!chop')) {
         // removed inline woodcutting (!chop) command handling (moved to handleWoodcuttingCommand)
