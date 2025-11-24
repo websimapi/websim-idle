@@ -18,6 +18,10 @@ function createTaskCard(uiManager, task, playerLevel, state) {
     // Handle Distributed Task Display
     if (task.isDistributed) {
         card.classList.add('distributed-task-card');
+        // Use native tooltip instead of an in-card description block
+        if (task.description) {
+            card.title = task.description;
+        }
         card.innerHTML = `
             <h4 style="color:var(--accent);">${task.name}</h4>
             <div class="task-meta-row">
@@ -26,9 +30,6 @@ function createTaskCard(uiManager, task, playerLevel, state) {
                 <span style="color:${hasRequiredLevel ? 'var(--accent)' : 'var(--text-dim)'}">
                     Unlock: Lv ${requiredLevel}
                 </span>
-            </div>
-            <div style="font-size:0.75rem; color:var(--text-dim); margin:4px 0;">
-                ${task.description}
             </div>
         `;
     } else {

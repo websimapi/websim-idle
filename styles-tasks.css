@@ -22,6 +22,18 @@
     color: var(--primary);
 }
 
+/* NEW: generic task description that only shows on hover */
+.task-description {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin: 4px 0;
+    display: none;
+}
+
+.task-card:hover .task-description {
+    display: block;
+}
+
 /* Compact meta row for time / XP / level */
 
 .task-meta-row {
