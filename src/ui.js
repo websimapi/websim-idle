@@ -92,6 +92,10 @@ export class UIManager {
         this.chatLog = document.getElementById('host-console-log');
         this.hostConsoleContainer = document.getElementById('host-console-container');
 
+        // New: console collapse controls
+        this.hostConsoleCollapseBtn = document.getElementById('host-console-collapse-btn');
+        this.hostConsoleFloatingToggle = document.getElementById('host-console-floating-toggle');
+
         // Ensure default PFP is used for all users
         if (this.userAvatar) {
             this.userAvatar.src = 'user_default_pfp.png';

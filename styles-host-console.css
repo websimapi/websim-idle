@@ -50,6 +50,15 @@
     width: 100%;
     min-width: 0;
     margin-top: auto;
+
+    /* Slide animation */
+    transform: translateY(0);
+    transition: transform 0.25s ease-out;
+}
+
+.host-console.collapsed {
+    transform: translateY(100%);
+    pointer-events: none;
 }
 
 /* Hide input row by default; only show in chat-view */
@@ -83,6 +92,21 @@
 .host-data-controls {
     display: flex;
     gap: 6px;
+}
+
+/* Collapse/expand arrow in panel header (top-right) */
+.host-console-collapse-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 2px 4px;
+    margin-left: 8px;
+}
+
+.host-console-collapse-btn:hover {
+    color: var(--primary);
 }
 
 /* Scrollable log inside fixed-height console */
@@ -161,6 +185,28 @@
 /* Show chat input row only in chat-view */
 .host-console.chat-view .host-console-input-row {
     display: flex;
+}
+
+/* Floating re-open arrow that stays visible when panel is collapsed */
+.host-console-floating-toggle {
+    position: absolute;
+    right: 16px;
+    bottom: 0;
+    transform: translateY(-6px);
+    z-index: 400;
+    background: #050509;
+    border: 1px solid var(--border);
+    border-radius: 10px 10px 0 0;
+    padding: 4px 10px;
+    color: var(--text-main);
+    font-size: 0.9rem;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(0,0,0,0.6);
+}
+
+.host-console-floating-toggle:hover {
+    color: var(--primary);
+    border-color: var(--primary);
 }
 
 /* Tombstone: host console moved */

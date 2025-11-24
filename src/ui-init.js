@@ -191,4 +191,39 @@ export function initListeners(uiManager) {
 
     // Host presence/player list callbacks are wired in setupHostUI
     // removed inline network.onPresenceUpdate and onPlayerListUpdate handlers {}
+
+    // Console/chat slide collapse + floating reopen toggle (host and clients)
+    const hostConsole = uiManager.hostConsoleContainer;
+    const collapseBtn = uiManager.hostConsoleCollapseBtn;
+    const floatingToggle = uiManager.hostConsoleFloatingToggle;
+
+    if (hostConsole && collapseBtn && floatingToggle) {
+        const collapsePanel = () => {
+            if (!hostConsole.classList.contains('collapsed')) {
+                hostConsole.classList.add('collapsed');
+                floatingToggle.style.display = 'block';
+            }
+        };
+
+        const expandPanel = () => {
+            if (hostConsole.classList.contains('collapsed')) {
+                hostConsole.classList.remove('collapsed');
+            }
+            floatingToggle.style.display = 'none';
+        };
+
+        collapseBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (hostConsole.classList.contains('collapsed')) {
+                expandPanel();
+            } else {
+                collapsePanel();
+            }
+        });
+
+        floatingToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            expandPanel();
+        });
+    }
 }
