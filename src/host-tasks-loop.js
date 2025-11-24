@@ -2,6 +2,7 @@ import { savePlayer, getAllPlayers } from './db.js';
 import { SKILLS } from './skills.js';
 import { appendHostLog, ONE_HOUR_MS } from './network-common.js';
 import { resolveTaskRewards, rollDistributedTask } from './host-tasks-rewards.js';
+import { getLevelInfo, computeSkillXp } from './xp.js';
 
 // Background loop: check all players for finished tasks and mark them complete
 export function startTaskCompletionLoop(networkManager) {
@@ -166,10 +167,34 @@ export function startTaskCompletionLoop(networkManager) {
                         // Restart task: Reset start time to now to begin next cycle
                         player.activeTask.startTime = Date.now();
 
+                        // If this task came from a generic command, auto-upgrade to best available task
+                        const fromGeneric =
+                            player.activeTask.meta &&
+                            player.activeTask.meta.fromGenericCommand === true;
+
+                        if (fromGeneric && owningSkill) {
+                            const totalXp = computeSkillXp(player, skillId);
+                            const levelInfo = getLevelInfo(totalXp);
+                            const playerLevel = levelInfo.level;
+
+                            // Highest non-distributed task they can do in this skill
+                            const bestTask = owningSkill.tasks
+                                .filter(t => !t.isDistributed && playerLevel >= (t.level || 1))
+                                .sort((a, b) => (b.level || 1) - (a.level || 1))[0];
+
+                            if (bestTask && bestTask.id !== player.activeTask.taskId) {
+                                player.activeTask.taskId = bestTask.id;
+                                player.activeTask.duration = bestTask.duration;
+                                appendHostLog(
+                                    `Background: auto-upgraded ${player.username}'s generic ${owningSkill.name} task to "${bestTask.name}".`
+                                );
+                            }
+                        }
+
                         // RE-ROLL DISTRIBUTED TASK: If this is a distributed task, we must
                         // re-roll the sub-tasks and update duration/meta for the NEXT cycle
                         // so it's not the same sub-task repeated forever.
-                        if (taskDef.isDistributed && owningSkill) {
+                        if (taskDef && taskDef.isDistributed && owningSkill) {
                             const roll = rollDistributedTask(player, owningSkill, taskDef);
                             if (roll) {
                                 player.activeTask.duration = roll.duration;

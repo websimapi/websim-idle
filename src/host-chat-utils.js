@@ -1,10 +1,19 @@
 import { savePlayer } from './db.js';
 import { appendHostLog, ONE_HOUR_MS, getAvailableEnergyCount } from './network-common.js';
 
-export async function ensureActiveEnergyAndStartTask(networkManager, player, twitchId, username, targetTask, commandLabel) {
+export async function ensureActiveEnergyAndStartTask(
+    networkManager,
+    player,
+    twitchId,
+    username,
+    targetTask,
+    commandLabel,
+    options = {}
+) {
     const room = networkManager.room;
     const now = Date.now();
     const totalAvailable = getAvailableEnergyCount(player);
+    const fromGenericCommand = !!options.fromGenericCommand;
 
     if (totalAvailable <= 0) {
         appendHostLog(
@@ -39,7 +48,10 @@ export async function ensureActiveEnergyAndStartTask(networkManager, player, twi
     player.activeTask = {
         taskId: targetTask.id,
         startTime: now,
-        duration: targetTask.duration
+        duration: targetTask.duration,
+        // Mark whether this came from a generic command so we can auto-upgrade.
+        // For specific commands we clear meta entirely so no old generic flag lingers.
+        meta: fromGenericCommand ? { fromGenericCommand: true } : null
     };
     player.pausedTask = null;
     player.manualStop = false;
