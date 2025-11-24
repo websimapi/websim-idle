@@ -173,6 +173,16 @@ export class NetworkManager {
                 importChannel ? ` "${importChannel}"` : ''
             } (overwrote existing data).`
         );
+
+        // NEW: after replacing all players, immediately apply offline progress so
+        // any pending tasks consume the appropriate energy and grant completions.
+        try {
+            await applyOfflineProgress(this);
+        } catch (err) {
+            console.error('Error applying offline progress after import', err);
+            appendHostLog(`Error applying offline progress after import: ${err?.message || err}`);
+        }
+
         await this.refreshPlayerList();
 
         // Broadcast updates to connected clients and local UI
