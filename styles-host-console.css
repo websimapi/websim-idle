@@ -95,6 +95,30 @@
     color: var(--primary);
 }
 
+/* Streamer mode toggle button */
+.host-streamer-toggle-btn {
+    background: #000;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 4px 10px;
+    margin-left: 8px;
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.host-streamer-toggle-btn.active {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: rgba(255, 183, 3, 0.1);
+}
+
+.host-streamer-toggle-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
 .host-data-controls {
     display: flex;
     gap: 6px;

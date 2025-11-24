@@ -42,6 +42,13 @@ export class UIManager {
         // New: track whether we've already applied one live update for the currently spectated user
         this.spectateFirstUpdateSeen = false;
 
+        // New: Streamer mode state (host only)
+        this.streamerMode = false;
+        this.streamerCurrentTwitchId = null;
+        this.streamerLastRotateAt = 0;
+        this.streamerLastTaskSignatureByPlayer = {};
+        this.streamerInterval = null;
+
         // Elements
         this.skillsList = document.getElementById('skills-list');
         this.authOverlay = document.getElementById('auth-overlay');
